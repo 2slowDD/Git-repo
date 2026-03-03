@@ -1,0 +1,284 @@
+/**
+ * Code Unloader — Admin Screen JS
+ */
+(function () {
+	'use strict';
+
+	const cfg   = window.CU_ADMIN || {};
+	const API   = cfg.api_base    || '';
+	const NONCE = cfg.nonce       || '';
+
+	async function api(method, path, body) {
+		const r = await fetch(API + path, {
+			method,
+			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+			body: body ? JSON.stringify(body) : undefined,
+		});
+		const d = await r.json();
+		if (!r.ok) throw new Error(d.message || r.statusText);
+		return d;
+	}
+
+	function notice(msg, type = 'success') {
+		const existing = document.querySelector('.cu-js-notice');
+		if (existing) existing.remove();
+		const div = document.createElement('div');
+		div.className = `notice notice-${type} is-dismissible cu-js-notice`;
+		div.innerHTML = `<p>${msg}</p><button type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss</span></button>`;
+		div.querySelector('.notice-dismiss').addEventListener('click', () => div.remove());
+		const h1 = document.querySelector('.cu-admin-wrap h1');
+		if (h1 && h1.parentNode) h1.parentNode.insertBefore(div, h1.nextSibling);
+		setTimeout(() => div.remove(), 5000);
+	}
+
+	// Delete stale rules
+	const staleBtn = document.getElementById('cu-delete-stale-btn');
+	if (staleBtn) {
+		staleBtn.addEventListener('click', async function () {
+			const staleNotice = this.closest('.cu-stale-notice');
+			const ids = JSON.parse(staleNotice ? (staleNotice.dataset.staleIds || '[]') : '[]');
+			if (!ids.length) return;
+			if (!confirm(`Delete ${ids.length} stale rule(s)? This cannot be undone.`)) return;
+			this.disabled = true; this.textContent = 'Deleting…';
+			try {
+				const r = await api('POST', '/rules/bulk-delete', { ids });
+				if (staleNotice) staleNotice.remove();
+				notice(`Deleted ${r.deleted} stale rule(s).`);
+			} catch (err) {
+				notice('Error: ' + err.message, 'error');
+				this.disabled = false; this.textContent = 'Delete stale rules';
+			}
+		});
+	}
+
+	// Delete single rule
+	document.addEventListener('click', async function (e) {
+		const btn = e.target.closest('.cu-delete-rule-btn');
+		if (!btn) return;
+		if (!confirm('Delete this rule?')) return;
+		try {
+			await api('DELETE', `/rules/${btn.dataset.id}`);
+			const row = btn.closest('tr');
+			if (row) row.remove();
+			notice('Rule deleted.');
+		} catch (err) { notice('Error: ' + err.message, 'error'); }
+	});
+
+	// Bulk delete
+	document.addEventListener('submit', async function (e) {
+		const form = e.target;
+		if (!form.querySelector('input[name="rule_ids[]"]')) return;
+		const sel1 = form.querySelector('select[name="action"]');
+		const sel2 = form.querySelector('select[name="action2"]');
+		const action = (sel1 && sel1.value !== '-1' ? sel1.value : null) || (sel2 && sel2.value !== '-1' ? sel2.value : null);
+
+		if (action === 'bulk-assign-group') {
+			e.preventDefault();
+			const ids = [...form.querySelectorAll('input[name="rule_ids[]"]:checked')].map(i => parseInt(i.value, 10));
+			if (!ids.length) { notice('Select at least one rule.', 'warning'); return; }
+			openAssignGroupModal(ids);
+			return;
+		}
+
+		if (action !== 'bulk-delete') return;
+		e.preventDefault();
+		const ids = [...form.querySelectorAll('input[name="rule_ids[]"]:checked')].map(i => i.value);
+		if (!ids.length) { notice('Select at least one rule.', 'warning'); return; }
+		if (!confirm(`Delete ${ids.length} rule(s)?`)) return;
+		try {
+			const r = await api('POST', '/rules/bulk-delete', { ids: ids.map(Number) });
+			notice(`Deleted ${r.deleted} rule(s).`);
+			ids.forEach(id => { const cb = form.querySelector(`input[value="${id}"]`); if (cb) { const row = cb.closest('tr'); if (row) row.remove(); } });
+		} catch (err) { notice('Error: ' + err.message, 'error'); }
+	});
+
+	// ---- Bulk Assign Group modal ----
+	function buildAssignGroupModal() {
+		if (document.getElementById('cu-assign-group-modal')) return;
+		const modal = document.createElement('div');
+		modal.id = 'cu-assign-group-modal';
+		modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:100100;background:rgba(0,0,0,.55);align-items:center;justify-content:center;';
+		modal.innerHTML = `
+		<div style="background:#fff;border-radius:6px;padding:24px 28px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.22);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+			<h2 style="margin:0 0 16px;font-size:16px;font-weight:600;">Add Rules to Group</h2>
+			<div id="cu-agm-body"></div>
+			<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+				<button id="cu-agm-cancel" class="button">Cancel</button>
+				<button id="cu-agm-confirm" class="button button-primary">Assign</button>
+			</div>
+		</div>`;
+		document.body.appendChild(modal);
+
+		modal.addEventListener('click', function(e) { if (e.target === modal) closeAssignGroupModal(); });
+		document.getElementById('cu-agm-cancel').addEventListener('click', closeAssignGroupModal);
+	}
+
+	function closeAssignGroupModal() {
+		const modal = document.getElementById('cu-assign-group-modal');
+		if (modal) modal.style.display = 'none';
+	}
+
+	function openAssignGroupModal(ids) {
+		buildAssignGroupModal();
+		const modal  = document.getElementById('cu-assign-group-modal');
+		const body   = document.getElementById('cu-agm-body');
+		const groups = (cfg.groups || []);
+
+		let html = '<p style="margin:0 0 14px;color:#555;font-size:13px;">Assign <strong>' + ids.length + '</strong> selected rule(s) to a group.</p>';
+
+		// Existing groups
+		if (groups.length) {
+			html += '<fieldset style="border:1px solid #ddd;border-radius:4px;padding:10px 14px;margin:0 0 14px;">';
+			html += '<legend style="font-size:12px;font-weight:600;padding:0 6px;color:#444;">Existing groups</legend>';
+			groups.forEach(function(g) {
+				html += `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;">
+					<input type="radio" name="cu_agm_group" value="${g.id}" style="margin:0;">
+					<span>${escHtml(g.name)}</span>
+					<span style="color:#999;font-size:11px;">(${g.rule_count || 0} rules)</span>
+				</label>`;
+			});
+			html += '</fieldset>';
+		}
+
+		// Create new
+		html += `<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;">
+			<input type="radio" name="cu_agm_group" value="__new__" style="margin:0;" ${groups.length ? '' : 'checked'}>
+			<span style="font-weight:600;">Create new group</span>
+		</label>
+		<div id="cu-agm-new-wrap" style="${groups.length ? 'display:none;' : ''}padding-left:24px;">
+			<input type="text" id="cu-agm-new-name" placeholder="Group name" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:3px;font-size:13px;">
+		</div>`;
+
+		body.innerHTML = html;
+
+		// Show/hide new group input based on radio selection
+		body.querySelectorAll('input[name="cu_agm_group"]').forEach(function(radio) {
+			radio.addEventListener('change', function() {
+				const wrap = document.getElementById('cu-agm-new-wrap');
+				if (wrap) wrap.style.display = (this.value === '__new__') ? '' : 'none';
+			});
+		});
+
+		// Wire confirm button
+		const confirmBtn = document.getElementById('cu-agm-confirm');
+		const newConfirm = confirmBtn.cloneNode(true); // remove old listeners
+		confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+		newConfirm.addEventListener('click', async function() {
+			const selected = body.querySelector('input[name="cu_agm_group"]:checked');
+			if (!selected) { alert('Please select a group or enter a new group name.'); return; }
+
+			newConfirm.disabled = true; newConfirm.textContent = 'Saving…';
+			try {
+				let groupId = null;
+
+				if (selected.value === '__new__') {
+					const nameEl = document.getElementById('cu-agm-new-name');
+					const name   = nameEl ? nameEl.value.trim() : '';
+					if (!name) { alert('Please enter a group name.'); newConfirm.disabled = false; newConfirm.textContent = 'Assign'; return; }
+					const created = await api('POST', '/groups', { name, description: '' });
+					groupId = created.id;
+					// Add to local groups list so subsequent modal opens reflect it
+					cfg.groups = cfg.groups || [];
+					cfg.groups.push({ id: groupId, name, rule_count: ids.length });
+				} else {
+					groupId = parseInt(selected.value, 10);
+				}
+
+				const r = await api('POST', '/rules/bulk-assign-group', { ids, group_id: groupId });
+				closeAssignGroupModal();
+				const groupName = (cfg.groups || []).find(g => g.id === groupId);
+				notice('Assigned ' + r.updated + ' rule(s) to group "' + (groupName ? escHtml(groupName.name) : groupId) + '".');
+			} catch(err) {
+				notice('Error: ' + err.message, 'error');
+				newConfirm.disabled = false; newConfirm.textContent = 'Assign';
+			}
+		});
+
+		modal.style.display = 'flex';
+		// Focus first radio or name input
+		const firstRadio = body.querySelector('input[name="cu_agm_group"]');
+		if (firstRadio) firstRadio.focus();
+	}
+
+	function escHtml(s) {
+		return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+
+	// Kill switch
+	const ksBtn = document.getElementById('cu-killswitch-btn');
+	if (ksBtn) {
+		ksBtn.addEventListener('click', async function () {
+			const active = this.dataset.active === '1';
+			const msg = active ? 'Deactivate the kill switch? Rules will resume.' : 'Activate the kill switch? ALL assets load normally sitewide until deactivated.';
+			if (!confirm(msg)) return;
+			this.disabled = true; this.textContent = 'Working…';
+			try {
+				const r = await api('POST', '/killswitch', { confirmed: true });
+				notice('Kill switch ' + (r.active ? 'activated.' : 'deactivated.'));
+				setTimeout(() => location.reload(), 800);
+			} catch (err) {
+				notice('Error: ' + err.message, 'error');
+				this.disabled = false; this.textContent = active ? 'Deactivate Kill Switch' : 'Activate Kill Switch';
+			}
+		});
+	}
+
+	// Group toggle
+	document.addEventListener('click', async function (e) {
+		const btn = e.target.closest('.cu-group-toggle-btn');
+		if (!btn) return;
+		const id = btn.dataset.id, enabled = btn.dataset.enabled === '1';
+		btn.disabled = true; btn.textContent = 'Working…';
+		try {
+			await api('PATCH', `/groups/${id}`, { enabled: enabled ? 0 : 1 });
+			notice('Group ' + (enabled ? 'disabled.' : 'enabled.'));
+			setTimeout(() => location.reload(), 500);
+		} catch (err) { notice('Error: ' + err.message, 'error'); btn.disabled = false; btn.textContent = enabled ? 'Disable Group' : 'Enable Group'; }
+	});
+
+	// Group delete
+	document.addEventListener('click', async function (e) {
+		const btn = e.target.closest('.cu-group-delete-btn');
+		if (!btn) return;
+		if (!confirm('Delete this group? Rules will become ungrouped.')) return;
+		btn.disabled = true;
+		try {
+			await api('DELETE', `/groups/${btn.dataset.id}`);
+			const card = btn.closest('.cu-group-card');
+			if (card) card.remove();
+			notice('Group deleted.');
+		} catch (err) { notice('Error: ' + err.message, 'error'); btn.disabled = false; }
+	});
+
+	// Create group
+	const createGroupBtn = document.getElementById('cu-create-group-btn');
+	if (createGroupBtn) {
+		createGroupBtn.addEventListener('click', async function () {
+			const nameEl = document.getElementById('cu-new-group-name');
+			const descEl = document.getElementById('cu-new-group-desc');
+			const name = nameEl ? nameEl.value.trim() : '';
+			if (!name) { notice('Group name is required.', 'warning'); return; }
+			this.disabled = true; this.textContent = 'Creating…';
+			try {
+				await api('POST', '/groups', { name, description: descEl ? descEl.value.trim() : '' });
+				notice('Group created.');
+				setTimeout(() => location.reload(), 500);
+			} catch (err) { notice('Error: ' + err.message, 'error'); this.disabled = false; this.textContent = 'Create Group'; }
+		});
+	}
+
+	// Clear log
+	const clearLogBtn = document.getElementById('cu-clear-log-btn');
+	if (clearLogBtn) {
+		clearLogBtn.addEventListener('click', async function () {
+			if (!confirm('Clear the entire audit log? This cannot be undone.')) return;
+			this.disabled = true; this.textContent = 'Clearing…';
+			try {
+				await api('DELETE', '/log', { confirmed: true });
+				notice('Audit log cleared.');
+				setTimeout(() => location.reload(), 800);
+			} catch (err) { notice('Error: ' + err.message, 'error'); this.disabled = false; this.textContent = 'Clear Log'; }
+		});
+	}
+
+})();

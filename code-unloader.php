@@ -1,0 +1,53 @@
+<?php
+/**
+ * Plugin Name: Code Unloader
+ * Plugin URI:  https://wordpress.org/plugins/code-unloader/
+ * Description: Per-page JavaScript & CSS asset management. Surgically dequeue scripts and styles on any page using exact, wildcard, or regex URL rules.
+ * Version:     1.0.0
+ * Requires at least: 6.2
+ * Requires PHP: 8.0
+ * Author:      Plugin Owner
+ * License:     GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: code-unloader
+ * Domain Path: /languages
+ */
+
+declare( strict_types=1 );
+
+namespace CodeUnloader;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+// Constants
+define( 'CU_VERSION',     '1.0.0' );
+define( 'CU_FILE',        __FILE__ );
+define( 'CU_DIR',         plugin_dir_path( __FILE__ ) );
+define( 'CU_URL',         plugin_dir_url( __FILE__ ) );
+define( 'CU_DB_VERSION',  '1' );
+define( 'CU_OPTION_KILL', 'cu_kill_switch' );
+define( 'CU_OPTION_DBVER','cu_db_version' );
+
+// PSR-4 autoloader
+spl_autoload_register( function ( string $class ): void {
+	$prefix = 'CodeUnloader\\';
+	if ( strncmp( $class, $prefix, strlen( $prefix ) ) !== 0 ) {
+		return;
+	}
+	$relative = str_replace( '\\', '/', substr( $class, strlen( $prefix ) ) );
+	$file      = CU_DIR . 'src/' . $relative . '.php';
+	if ( file_exists( $file ) ) {
+		require_once $file;
+	}
+} );
+
+// Activation / Deactivation / Uninstall hooks
+register_activation_hook(   __FILE__, [ Core\Installer::class, 'activate' ] );
+register_deactivation_hook( __FILE__, [ Core\Installer::class, 'deactivate' ] );
+
+// Boot the plugin
+add_action( 'plugins_loaded', function (): void {
+	( new Plugin() )->boot();
+} );

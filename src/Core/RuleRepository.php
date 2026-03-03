@@ -1,0 +1,330 @@
+<?php
+declare( strict_types=1 );
+
+namespace CodeUnloader\Core;
+
+class RuleRepository {
+
+	private static ?array $rules_cache = null;
+
+	// -------------------------------------------------------------------------
+	// Rules
+	// -------------------------------------------------------------------------
+
+	/** Load all rules (request-scoped cache). */
+	public static function get_all_rules(): array {
+		if ( null !== self::$rules_cache ) {
+			return self::$rules_cache;
+		}
+		global $wpdb;
+		$results = $wpdb->get_results(
+			"SELECT r.*, g.enabled AS group_enabled
+			 FROM {$wpdb->prefix}cu_rules r
+			 LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id"
+		);
+		self::$rules_cache = $results ?: [];
+		return self::$rules_cache;
+	}
+
+	/** Get a single rule by ID. */
+	public static function get_rule( int $id ): ?object {
+		global $wpdb;
+		return $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}cu_rules WHERE id = %d", $id )
+		) ?: null;
+	}
+
+	/** Insert a new rule. Returns new ID or WP_Error. */
+	public static function create_rule( array $data ): int|\WP_Error {
+		global $wpdb;
+
+		$now = current_time( 'mysql', true );
+
+		$inserted = $wpdb->insert(
+			"{$wpdb->prefix}cu_rules",
+			[
+				'url_pattern'     => $data['url_pattern'],
+				'match_type'      => $data['match_type'],
+				'asset_handle'    => $data['asset_handle'],
+				'asset_type'      => $data['asset_type'],
+				'source_label'    => $data['source_label']    ?? '',
+				'device_type'     => $data['device_type']     ?? 'all',
+				'condition_type'  => $data['condition_type']  ?? null,
+				'condition_value' => $data['condition_value'] ?? null,
+				'condition_invert'=> (int) ( $data['condition_invert'] ?? 0 ),
+				'group_id'        => $data['group_id']        ?? null,
+				'label'           => $data['label']           ?? null,
+				'created_by'      => get_current_user_id() ?: null,
+				'created_at'      => $now,
+			],
+			[ '%s','%s','%s','%s','%s','%s','%s','%s','%d','%d','%s','%d','%s' ]
+		);
+
+		if ( false === $inserted ) {
+			return new \WP_Error( 'db_error', $wpdb->last_error );
+		}
+
+		self::$rules_cache = null; // invalidate cache
+		$new_id = (int) $wpdb->insert_id;
+
+		// Audit log
+		self::log_action( 'create', get_current_user_id(), $new_id, self::get_rule( $new_id ) );
+
+		// Purge relevant cache so the rule takes effect immediately
+		CachePurger::purge_for_rule( $data['url_pattern'], $data['match_type'] );
+
+		return $new_id;
+	}
+
+	/** Update label, group_id, condition fields of a rule. */
+	public static function update_rule( int $id, array $data ): bool|\WP_Error {
+		global $wpdb;
+
+		$allowed = [ 'label', 'group_id', 'condition_type', 'condition_value', 'condition_invert' ];
+		$update  = array_intersect_key( $data, array_flip( $allowed ) );
+
+		if ( empty( $update ) ) {
+			return new \WP_Error( 'no_fields', 'No updatable fields provided.' );
+		}
+
+		$result = $wpdb->update(
+			"{$wpdb->prefix}cu_rules",
+			$update,
+			[ 'id' => $id ]
+		);
+
+		self::$rules_cache = null;
+		return $result !== false;
+	}
+
+	/** Delete a single rule. */
+	public static function delete_rule( int $id ): bool {
+		global $wpdb;
+
+		$rule = self::get_rule( $id );
+		$result = (bool) $wpdb->delete( "{$wpdb->prefix}cu_rules", [ 'id' => $id ], [ '%d' ] );
+
+		if ( $result ) {
+			self::$rules_cache = null;
+			self::log_action( 'delete', get_current_user_id(), $id, $rule );
+			if ( $rule ) {
+				CachePurger::purge_for_rule( $rule->url_pattern, $rule->match_type );
+			}
+		}
+
+		return $result;
+	}
+
+	/** Bulk delete rules by array of IDs. */
+	public static function delete_rules( array $ids ): int {
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+		global $wpdb;
+		$ids_int   = array_map( 'intval', $ids );
+		$ids_clean = implode( ',', $ids_int );
+		$deleted   = (int) $wpdb->query( "DELETE FROM {$wpdb->prefix}cu_rules WHERE id IN ({$ids_clean})" );
+		self::$rules_cache = null;
+		return $deleted;
+	}
+
+	/**
+	 * Return handles stored in rules that are no longer registered in WordPress.
+	 * Only meaningful on the FRONTEND after wp_enqueue_scripts has fired.
+	 * On admin pages $wp_scripts->registered contains only admin scripts —
+	 * every frontend plugin handle would falsely appear "stale".
+	 *
+	 * @return int[]  Array of rule IDs that reference stale handles.
+	 */
+	public static function get_stale_rule_ids(): array {
+		global $wp_scripts, $wp_styles, $wpdb;
+
+		// Only run on frontend. Admin pages never register frontend plugin scripts,
+		// so running there would flag every valid frontend rule as stale.
+		if ( ! did_action( 'wp_enqueue_scripts' ) ) {
+			return [];
+		}
+
+		$registered_handles = array_merge(
+			array_keys( $wp_scripts->registered ?? [] ),
+			array_keys( $wp_styles->registered  ?? [] )
+		);
+
+		if ( empty( $registered_handles ) ) {
+			return [];
+		}
+
+		// Only check handle-based rules (not inline rules which store patterns, not handles)
+		$rows = $wpdb->get_results(
+			"SELECT id, asset_handle, asset_type FROM {$wpdb->prefix}cu_rules
+			 WHERE asset_type IN ('js','css')"
+		);
+
+		$stale = [];
+		foreach ( $rows as $row ) {
+			if ( ! in_array( $row->asset_handle, $registered_handles, true ) ) {
+				$stale[] = (int) $row->id;
+			}
+		}
+
+		return $stale;
+	}
+
+	/** Get rules filtered for admin list table. */
+	public static function get_rules_filtered( array $filters = [], int $per_page = 20, int $page = 1 ): array {
+		global $wpdb;
+
+		$where  = [ '1=1' ];
+		$params = [];
+
+		if ( ! empty( $filters['search'] ) ) {
+			$s        = '%' . $wpdb->esc_like( $filters['search'] ) . '%';
+			$where[]  = '(r.url_pattern LIKE %s OR r.asset_handle LIKE %s OR r.source_label LIKE %s)';
+			$params[] = $s;
+			$params[] = $s;
+			$params[] = $s;
+		}
+
+		foreach ( [ 'match_type', 'asset_type', 'device_type' ] as $f ) {
+			if ( ! empty( $filters[ $f ] ) ) {
+				$where[]  = "r.{$f} = %s";
+				$params[] = $filters[ $f ];
+			}
+		}
+
+		if ( ! empty( $filters['group_id'] ) ) {
+			$where[]  = 'r.group_id = %d';
+			$params[] = (int) $filters['group_id'];
+		}
+
+		$where_sql = implode( ' AND ', $where );
+		$offset    = ( $page - 1 ) * $per_page;
+
+		$sql = "SELECT r.*, g.name AS group_name
+				FROM {$wpdb->prefix}cu_rules r
+				LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id
+				WHERE {$where_sql}
+				ORDER BY r.created_at DESC
+				LIMIT %d OFFSET %d";
+
+		$params[] = $per_page;
+		$params[] = $offset;
+
+		// Params for the main SELECT (includes LIMIT/OFFSET)
+		$rows = $wpdb->get_results( $params ? $wpdb->prepare( $sql, ...$params ) : $sql );
+
+		// Params for COUNT — strip the trailing LIMIT and OFFSET values
+		$count_params = array_slice( $params, 0, count( $params ) - 2 );
+		$count_sql    = "SELECT COUNT(*) FROM {$wpdb->prefix}cu_rules r WHERE {$where_sql}";
+		$count        = (int) ( $count_params
+			? $wpdb->get_var( $wpdb->prepare( $count_sql, ...$count_params ) )
+			: $wpdb->get_var( $count_sql )
+		);
+
+		return [ 'rows' => $rows ?: [], 'total' => $count ];
+	}
+
+	// -------------------------------------------------------------------------
+	// Groups
+	// -------------------------------------------------------------------------
+
+	public static function get_all_groups(): array {
+		global $wpdb;
+		return $wpdb->get_results(
+			"SELECT g.*, COUNT(r.id) AS rule_count
+			 FROM {$wpdb->prefix}cu_groups g
+			 LEFT JOIN {$wpdb->prefix}cu_rules r ON r.group_id = g.id
+			 GROUP BY g.id
+			 ORDER BY g.name"
+		) ?: [];
+	}
+
+	public static function get_group( int $id ): ?object {
+		global $wpdb;
+		return $wpdb->get_row( $wpdb->prepare(
+			"SELECT * FROM {$wpdb->prefix}cu_groups WHERE id = %d", $id
+		) ) ?: null;
+	}
+
+	public static function create_group( string $name, string $description = '' ): int|\WP_Error {
+		global $wpdb;
+		$inserted = $wpdb->insert(
+			"{$wpdb->prefix}cu_groups",
+			[ 'name' => $name, 'description' => $description, 'enabled' => 1, 'created_at' => current_time( 'mysql', true ) ],
+			[ '%s', '%s', '%d', '%s' ]
+		);
+		return $inserted ? (int) $wpdb->insert_id : new \WP_Error( 'db_error', $wpdb->last_error );
+	}
+
+	public static function update_group( int $id, array $data ): bool {
+		global $wpdb;
+		$allowed = [ 'name', 'description', 'enabled' ];
+		$update  = array_intersect_key( $data, array_flip( $allowed ) );
+		if ( empty( $update ) ) {
+			return false;
+		}
+		$result = $wpdb->update( "{$wpdb->prefix}cu_groups", $update, [ 'id' => $id ] );
+
+		if ( $result !== false && isset( $data['enabled'] ) ) {
+			$group = self::get_group( $id );
+			self::log_action( 'group_toggle', get_current_user_id(), null, $group );
+		}
+
+		return $result !== false;
+	}
+
+	public static function delete_group( int $id ): bool {
+		global $wpdb;
+		// Rules become ungrouped
+		$wpdb->update( "{$wpdb->prefix}cu_rules", [ 'group_id' => null ], [ 'group_id' => $id ] );
+		return (bool) $wpdb->delete( "{$wpdb->prefix}cu_groups", [ 'id' => $id ], [ '%d' ] );
+	}
+
+	// -------------------------------------------------------------------------
+	// Audit log
+	// -------------------------------------------------------------------------
+
+	public static function log_action( string $action, int $user_id, ?int $rule_id, $snapshot ): void {
+		global $wpdb;
+		$wpdb->insert(
+			"{$wpdb->prefix}cu_log",
+			[
+				'user_id'    => $user_id,
+				'action'     => $action,
+				'rule_id'    => $rule_id,
+				'snapshot'   => $snapshot ? wp_json_encode( $snapshot ) : null,
+				'created_at' => current_time( 'mysql', true ),
+			],
+			[ '%d', '%s', '%d', '%s', '%s' ]
+		);
+	}
+
+	public static function get_log( int $per_page = 50, int $page = 1, ?string $action_filter = null ): array {
+		global $wpdb;
+		$where  = '1=1';
+		$params = [];
+		if ( $action_filter ) {
+			$where    = 'action = %s';
+			$params[] = $action_filter;
+		}
+		$offset = ( $page - 1 ) * $per_page;
+		$sql    = "SELECT l.*, u.user_login
+				   FROM {$wpdb->prefix}cu_log l
+				   LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+				   WHERE {$where}
+				   ORDER BY l.created_at DESC
+				   LIMIT %d OFFSET %d";
+		$params[] = $per_page;
+		$params[] = $offset;
+
+		$rows  = $wpdb->get_results( $params ? $wpdb->prepare( $sql, ...$params ) : $sql );
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}cu_log WHERE {$where}" );
+
+		return [ 'rows' => $rows ?: [], 'total' => $total ];
+	}
+
+	public static function clear_log(): void {
+		global $wpdb;
+		$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}cu_log" );
+	}
+}
