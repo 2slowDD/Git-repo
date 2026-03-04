@@ -3,6 +3,12 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+use CodeUnloader\Core\PatternMatcher;
+
 class ConditionEvaluator {
 
 	/**
@@ -36,9 +42,10 @@ class ConditionEvaluator {
 		return match ( true ) {
 			$type === 'is_user_logged_in'    => is_user_logged_in(),
 			$type === 'is_woocommerce_page'  => self::is_woocommerce_page(),
-			str_starts_with( $type, 'has_shortcode:' ) => self::has_shortcode( substr( $type, 14 ) ),
-			str_starts_with( $type, 'is_post_type:' )  => self::is_post_type( substr( $type, 13 ) ),
+			str_starts_with( $type, 'has_shortcode:' )    => self::has_shortcode( substr( $type, 14 ) ),
+			str_starts_with( $type, 'is_post_type:' )     => self::is_post_type( substr( $type, 13 ) ),
 			str_starts_with( $type, 'is_page_template:' ) => self::is_page_template( substr( $type, 17 ) ),
+			str_starts_with( $type, 'exact_url:' )        => self::is_exact_url( substr( $type, 10 ) ),
 			default => false,
 		};
 	}
@@ -64,6 +71,20 @@ class ConditionEvaluator {
 
 	private static function is_page_template( string $template ): bool {
 		return (string) get_page_template_slug() === $template;
+	}
+
+	/**
+	 * Check whether the current page URL matches a stored exact URL.
+	 * Used by the "Everywhere except here" scope (condition_invert = true).
+	 */
+	private static function is_exact_url( string $stored_url ): bool {
+		if ( empty( $stored_url ) ) {
+			return false;
+		}
+		$current = PatternMatcher::normalize_url(
+			home_url( add_query_arg( [], $GLOBALS['wp']->request ?? '' ) )
+		);
+		return $current === PatternMatcher::normalize_url( $stored_url );
 	}
 
 	/**

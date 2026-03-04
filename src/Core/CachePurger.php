@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * CachePurger
  *
@@ -49,7 +53,7 @@ class CachePurger {
 
 		// LiteSpeed Cache
 		if ( class_exists( '\LiteSpeed\Purge' ) ) {
-			do_action( 'litespeed_purge_url', $url );
+			do_action( 'litespeed_purge_url', $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		// WP Super Cache
@@ -74,7 +78,7 @@ class CachePurger {
 
 		// Breeze (Cloudways)
 		if ( class_exists( '\Breeze_Admin' ) ) {
-			do_action( 'breeze_clear_all_cache' );
+			do_action( 'breeze_clear_all_cache' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		// SG Optimizer (SiteGround)
@@ -84,12 +88,12 @@ class CachePurger {
 
 		// Nginx Helper
 		if ( class_exists( '\Nginx_Helper' ) ) {
-			do_action( 'rt_nginx_helper_purge_url', $url );
+			do_action( 'rt_nginx_helper_purge_url', $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		// Cloudflare (if using the official plugin)
 		if ( class_exists( '\CF\WordPress\Hooks' ) ) {
-			do_action( 'cloudflare_purge_by_url', [ $url ] );
+			do_action( 'cloudflare_purge_by_url', [ $url ] ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		do_action( 'code_unloader_purge_url', $url );
@@ -107,7 +111,7 @@ class CachePurger {
 
 		// LiteSpeed Cache
 		if ( class_exists( '\LiteSpeed\Purge' ) ) {
-			do_action( 'litespeed_purge_all' );
+			do_action( 'litespeed_purge_all' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		// W3 Total Cache
@@ -132,7 +136,7 @@ class CachePurger {
 
 		// Breeze
 		if ( class_exists( '\Breeze_Admin' ) ) {
-			do_action( 'breeze_clear_all_cache' );
+			do_action( 'breeze_clear_all_cache' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		// SG Optimizer
@@ -150,7 +154,7 @@ class CachePurger {
 
 		// Cloudflare
 		if ( class_exists( '\CF\WordPress\Hooks' ) ) {
-			do_action( 'cloudflare_purge_everything' );
+			do_action( 'cloudflare_purge_everything' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
 		do_action( 'code_unloader_purge_all' );

@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Api;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use CodeUnloader\Core\{PatternMatcher, RuleRepository, ConditionEvaluator, DeviceDetector};
 
 class RestController {
@@ -74,7 +78,12 @@ class RestController {
 		if ( $page_url ) {
 			$url  = PatternMatcher::normalize_url( (string) $page_url );
 			$all  = RuleRepository::get_all_rules();
-			$rows = array_values( array_filter( $all, fn( $r ) => PatternMatcher::match( $r, $url ) ) );
+			$rows = array_values( array_filter( $all, function ( $r ) use ( $url ): bool {
+				if ( isset( $r->group_id ) && null !== $r->group_id && ! (int) ( $r->group_enabled ?? 1 ) ) {
+					return false;
+				}
+				return PatternMatcher::match( $r, $url );
+			} ) );
 			return new \WP_REST_Response( $rows );
 		}
 
@@ -281,11 +290,18 @@ class RestController {
 		$url      = PatternMatcher::normalize_url( $page_url );
 		$all_rules = RuleRepository::get_all_rules();
 
-		// Build a map of handle => matching_rule for the panel
+		// Build a map of "handle|type" => matching_rule for the panel.
+		// Keying by both handle AND type ensures a plugin that registers the same
+		// handle name for both JS and CSS (e.g. Enlighter) keeps both entries.
+		// Skip rules whose group is disabled — those assets should load normally.
 		$matched = [];
 		foreach ( $all_rules as $rule ) {
+			if ( isset( $rule->group_id ) && null !== $rule->group_id && ! (int) ( $rule->group_enabled ?? 1 ) ) {
+				continue;
+			}
 			if ( PatternMatcher::match( $rule, $url ) ) {
-				$matched[ $rule->asset_handle ] = $rule;
+				$key             = $rule->asset_handle . '|' . $rule->asset_type;
+				$matched[ $key ] = $rule;
 			}
 		}
 

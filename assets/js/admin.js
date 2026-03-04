@@ -31,6 +31,19 @@
 		setTimeout(() => div.remove(), 5000);
 	}
 
+	/**
+	 * Adjust the "N total rules" counter by delta (+n or -n).
+	 * Parses the current number from the span text, adjusts it, rewrites it.
+	 */
+	function updateRulesCount(delta) {
+		const el = document.getElementById('cu-total-rules-count');
+		if (!el) return;
+		const match = el.textContent.match(/\d+/);
+		if (!match) return;
+		const newCount = Math.max(0, parseInt(match[0], 10) + delta);
+		el.textContent = el.textContent.replace(/\d+/, newCount);
+	}
+
 	// Delete stale rules
 	const staleBtn = document.getElementById('cu-delete-stale-btn');
 	if (staleBtn) {
@@ -43,6 +56,7 @@
 			try {
 				const r = await api('POST', '/rules/bulk-delete', { ids });
 				if (staleNotice) staleNotice.remove();
+				updateRulesCount(-r.deleted);
 				notice(`Deleted ${r.deleted} stale rule(s).`);
 			} catch (err) {
 				notice('Error: ' + err.message, 'error');
@@ -60,6 +74,7 @@
 			await api('DELETE', `/rules/${btn.dataset.id}`);
 			const row = btn.closest('tr');
 			if (row) row.remove();
+			updateRulesCount(-1);
 			notice('Rule deleted.');
 		} catch (err) { notice('Error: ' + err.message, 'error'); }
 	});
@@ -89,6 +104,7 @@
 			const r = await api('POST', '/rules/bulk-delete', { ids: ids.map(Number) });
 			notice(`Deleted ${r.deleted} rule(s).`);
 			ids.forEach(id => { const cb = form.querySelector(`input[value="${id}"]`); if (cb) { const row = cb.closest('tr'); if (row) row.remove(); } });
+			updateRulesCount(-r.deleted);
 		} catch (err) { notice('Error: ' + err.message, 'error'); }
 	});
 
@@ -159,9 +175,11 @@
 			});
 		});
 
-		// Wire confirm button
+		// Wire confirm button — always clone so prior event listeners/disabled state are cleared.
 		const confirmBtn = document.getElementById('cu-agm-confirm');
-		const newConfirm = confirmBtn.cloneNode(true); // remove old listeners
+		const newConfirm = confirmBtn.cloneNode(true);
+		newConfirm.disabled  = false;          // Bug 1: ensure clone starts enabled
+		newConfirm.textContent = 'Assign';
 		confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
 		newConfirm.addEventListener('click', async function() {
 			const selected = body.querySelector('input[name="cu_agm_group"]:checked');
@@ -176,8 +194,8 @@
 					const name   = nameEl ? nameEl.value.trim() : '';
 					if (!name) { alert('Please enter a group name.'); newConfirm.disabled = false; newConfirm.textContent = 'Assign'; return; }
 					const created = await api('POST', '/groups', { name, description: '' });
-					groupId = created.id;
-					// Add to local groups list so subsequent modal opens reflect it
+					// Bug 2: always store id as integer for consistent find() matching
+					groupId = parseInt(created.id, 10);
 					cfg.groups = cfg.groups || [];
 					cfg.groups.push({ id: groupId, name, rule_count: ids.length });
 				} else {
@@ -186,11 +204,29 @@
 
 				const r = await api('POST', '/rules/bulk-assign-group', { ids, group_id: groupId });
 				closeAssignGroupModal();
-				const groupName = (cfg.groups || []).find(g => g.id === groupId);
-				notice('Assigned ' + r.updated + ' rule(s) to group "' + (groupName ? escHtml(groupName.name) : groupId) + '".');
+
+				// Bug 2: find() with strict int comparison — both sides are now parseInt
+				const groupObj   = (cfg.groups || []).find(g => parseInt(g.id, 10) === groupId);
+				const groupLabel = groupObj ? groupObj.name : String(groupId);
+				const pillHtml   = '<span class="cu-pill cu-pill-teal">' + escHtml(groupLabel) + '</span>';
+
+				// Refresh Group column cells in affected rows without a page reload.
+				ids.forEach(function(id) {
+					const cb = document.querySelector('input[name="rule_ids[]"][value="' + id + '"]');
+					if (!cb) return;
+					const row  = cb.closest('tr');
+					if (!row) return;
+					const cell = row.querySelector('td.column-group_name');
+					if (cell) cell.innerHTML = pillHtml;
+				});
+
+				notice('Assigned ' + r.updated + ' rule(s) to group "' + escHtml(groupLabel) + '".');
 			} catch(err) {
 				notice('Error: ' + err.message, 'error');
-				newConfirm.disabled = false; newConfirm.textContent = 'Assign';
+			} finally {
+				// Bug 1: always re-enable button so the modal is usable again after any outcome
+				newConfirm.disabled  = false;
+				newConfirm.textContent = 'Assign';
 			}
 		});
 

@@ -3,11 +3,13 @@ declare( strict_types=1 );
 
 namespace CodeUnloader;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class Plugin {
 
 	public function boot(): void {
-		load_plugin_textdomain( 'code-unloader', false, dirname( plugin_basename( CU_FILE ) ) . '/languages' );
-
 		// Core engine — always runs on frontend
 		if ( ! is_admin() ) {
 			( new Core\DequeueEngine() )->init();

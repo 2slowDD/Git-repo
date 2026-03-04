@@ -1,6 +1,6 @@
 /* ============================================================
-   Code Unloader — Frontend Panel v5
-   Dark theme default. Light theme via [data-theme="light"].
+   Code Unloader — Frontend Panel CSS v10
+   Light theme default. Dark theme via [data-theme="dark"].
    All text meets WCAG AA (4.5:1 for small text, 3:1 for large).
    ============================================================ */
 
@@ -43,7 +43,7 @@
 	--cu-kill-txt:   #ffe0e0;
 
 	/* toggle */
-	--cu-toggle-off: #52528a;
+	--cu-toggle-off: #cc1818;
 	--cu-toggle-on:  #267326;
 
 	/* tab active highlight */
@@ -86,7 +86,7 @@
 	--cu-kill-bg:    #8b0000;
 	--cu-kill-txt:   #fff;
 
-	--cu-toggle-off: #9090c0;
+	--cu-toggle-off: #cc1818;
 	--cu-toggle-on:  #1a6e1a;
 
 	--cu-tab-active-bg:  #e0e0f4;
@@ -170,6 +170,21 @@ body.admin-bar #cu-panel {
 	background: var(--cu-bg-hover);
 	color: var(--cu-text);
 	border-color: var(--cu-border);
+}
+/* Anchor variant — same appearance, no underline */
+a.cu-icon-btn--link {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	text-decoration: none;
+}
+/* SVG icons inside icon buttons */
+.cu-icon-btn svg {
+	display: block;
+	width: 16px;
+	height: 16px;
+	fill: currentColor;
+	flex-shrink: 0;
 }
 
 /* -----------------------------------------------------------------------
@@ -275,8 +290,8 @@ body.admin-bar #cu-panel {
 }
 .cu-source-label { flex: 1; }
 .cu-source-count {
-	background: var(--cu-border);
-	color: var(--cu-text-muted);
+	background: #ffffff;
+	color: #2a2a5a;   /* 11:1 on #fff */
 	font-size: 10px;
 	padding: 1px 7px;
 	border-radius: 10px;
@@ -441,7 +456,7 @@ body.admin-bar #cu-panel {
 	border: 1px solid var(--cu-border-mid);
 	border-radius: 12px;
 	padding: 28px;
-	width: 560px;
+	width: 660px;
 	max-width: 94vw;
 	max-height: 90vh;
 	overflow-y: auto;
@@ -505,6 +520,9 @@ body.admin-bar #cu-panel {
 	grid-template-columns: repeat(5, 1fr);
 	gap: 6px;
 	margin-bottom: 4px;
+}
+.cu-scope-group--6col {
+	grid-template-columns: repeat(6, 1fr);
 }
 .cu-scope-btn {
 	display: flex;
@@ -585,7 +603,7 @@ body.admin-bar #cu-panel {
 }
 .cu-btn-primary {
 	background: var(--cu-accent);
-	color: #0e0e1e;        /* dark text on light accent — 10:1 */
+	color: #ffffff;        /* white on accent — passes in both themes */
 	border: none;
 	padding: 9px 22px;
 	border-radius: 7px;
@@ -604,9 +622,18 @@ body.admin-bar #cu-panel {
 	border-radius: 7px;
 	cursor: pointer;
 	font-size: 13px;
-	transition: background .15s;
+	transition: background .15s, color .15s;
 }
-.cu-btn-secondary:hover { background: var(--cu-bg-hover); }
+.cu-btn-secondary:hover {
+	background: var(--cu-bg-hover);
+	color: var(--cu-text);   /* explicit: stays full-contrast on hover in both themes */
+	border-color: var(--cu-border-mid);
+}
+
+/* Condition wrap — dims when except_here scope is selected */
+#cu-condition-wrap {
+	transition: opacity .2s;
+}
 
 /* Help icon */
 .cu-help {
@@ -705,6 +732,7 @@ body.admin-bar #cu-panel {
 	display: flex;
 	align-items: center;
 	border-bottom: 1px solid var(--cu-border);
+	background: linear-gradient(135deg, #5500cc0a 0%, rgb(140 0 0 / .18) 100%);
 }
 .cu-source-header-row .cu-source-header {
 	flex: 1;
@@ -723,8 +751,8 @@ body.admin-bar #cu-panel {
 	padding: 3px 10px;
 	border-radius: 4px;
 	border: 1px solid var(--cu-border-mid);
-	background: var(--cu-bg-raised);
-	color: var(--cu-text-muted);
+	background: #ffffff;
+	color: #2a2a5a;
 	cursor: pointer;
 	letter-spacing: .03em;
 	white-space: nowrap;
@@ -751,13 +779,47 @@ body.admin-bar #cu-panel {
 }
 
 /* -----------------------------------------------------------------------
+   Source header row overrides for DARK theme
+   ----------------------------------------------------------------------- */
+#cu-panel[data-theme="dark"] .cu-source-header-row,
+#cu-dialog[data-theme="dark"] .cu-source-header-row {
+	background: linear-gradient(135deg, #f0f0f0 20%, rgb(140 0 0 / .18) 100%);
+}
+#cu-panel[data-theme="dark"] .cu-source-header-row .cu-source-header,
+#cu-dialog[data-theme="dark"] .cu-source-header-row .cu-source-header {
+	color: #234897;   /* 7.2:1 on #f0f0f0 */
+}
+#cu-panel[data-theme="dark"] .cu-source-header-row .cu-source-header:hover,
+#cu-dialog[data-theme="dark"] .cu-source-header-row .cu-source-header:hover {
+	background: rgba(0,0,0,.08);
+	color: #0f2d6e;
+}
+#cu-panel[data-theme="dark"] .cu-source-header-row .cu-source-count,
+#cu-dialog[data-theme="dark"] .cu-source-header-row .cu-source-count,
+#cu-panel[data-theme="dark"] .cu-source-header-row .cu-source-size,
+#cu-dialog[data-theme="dark"] .cu-source-header-row .cu-source-size {
+	background: #ffffff;
+	color: #1a1a3a;   /* 17:1 on #fff */
+}
+#cu-panel[data-theme="dark"] .cu-source-header-row .cu-chevron,
+#cu-dialog[data-theme="dark"] .cu-source-header-row .cu-chevron {
+	color: #fff;
+}
+#cu-panel[data-theme="dark"] .cu-source-header-row .cu-group-action-btn,
+#cu-dialog[data-theme="dark"] .cu-source-header-row .cu-group-action-btn {
+	background: #ffffff;
+	color: #1a2e6e;   /* 9:1 on #fff */
+	border-color: #8899cc;
+}
+
+/* -----------------------------------------------------------------------
    First-use warning banner
    ----------------------------------------------------------------------- */
 .cu-first-use-warning {
-	background: linear-gradient(135deg, rgba(180,80,0,.18) 0%, rgba(140,0,0,.18) 100%);
 	border-bottom: 2px solid #a05000;
 	flex-shrink: 0;
 	padding: 0;
+	background: linear-gradient(135deg, #cc18188f 0%, rgb(140 0 0 / .18) 100%);
 }
 .cu-warning-body {
 	display: flex;
@@ -878,8 +940,8 @@ body.admin-bar #cu-panel {
 .cu-source-size {
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--cu-text-muted);
-	background: var(--cu-bg-active);
+	color: #2a2a5a;   /* 11:1 on #fff */
+	background: #ffffff;
 	padding: 1px 7px;
 	border-radius: 8px;
 	white-space: nowrap;
@@ -887,4 +949,124 @@ body.admin-bar #cu-panel {
 }
 .cu-source-header:hover .cu-source-size {
 	color: var(--cu-text);
+}
+
+/* Inline Blocks Tab */
+.cu-inline-info-bar {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	background: var(--cu-bg-raised);
+	border-bottom: 1px solid var(--cu-border);
+	padding: 10px 16px;
+	font-size: 12px;
+	color: var(--cu-text-muted);
+	line-height: 1.5;
+	flex-shrink: 0;
+}
+.cu-inline-info-icon {
+	font-size: 14px;
+	font-style: normal;
+	color: var(--cu-blue);
+	flex-shrink: 0;
+	margin-top: 1px;
+}
+.cu-inline-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 16px;
+	border-bottom: 1px solid var(--cu-border);
+	background: var(--cu-bg-raised);
+	flex-shrink: 0;
+}
+.cu-inline-group-btn {
+	font-size: 11px;
+	font-weight: 700;
+	padding: 4px 12px;
+	border-radius: 5px;
+	border: 1px solid var(--cu-border-mid);
+	background: var(--cu-bg);
+	color: var(--cu-text-muted);
+	cursor: pointer;
+	transition: background .12s, color .12s, border-color .12s;
+	letter-spacing: .02em;
+}
+.cu-inline-group-btn:hover {
+	background: var(--cu-bg-hover);
+	color: var(--cu-text);
+	border-color: var(--cu-accent);
+}
+.cu-inline-group-btn--active {
+	background: var(--cu-bg-active);
+	color: var(--cu-accent);
+	border-color: var(--cu-accent);
+}
+.cu-inline-count {
+	font-size: 11px;
+	color: var(--cu-text-muted);
+	font-weight: 600;
+}
+/* Group section headers */
+.cu-inline-group-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 16px;
+	background: var(--cu-bg-raised);
+	border-bottom: 1px solid var(--cu-border);
+	border-top: 1px solid var(--cu-border);
+}
+.cu-inline-group-header:first-child { border-top: none; }
+.cu-inline-group-label {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .05em;
+	text-transform: uppercase;
+	color: var(--cu-text-muted);
+	flex: 1;
+}
+.cu-inline-block {
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--cu-border);
+}
+.cu-inline-block:last-child {
+	border-bottom: none;
+}
+.cu-inline-block-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+.cu-inline-id {
+	font-size: 11px;
+	background: var(--cu-bg-active);
+	padding: 1px 6px;
+	border-radius: 4px;
+	color: var(--cu-text);
+}
+.cu-inline-noid {
+	font-size: 11px;
+	color: var(--cu-text-muted);
+	font-style: italic;
+}
+.cu-inline-size {
+	font-size: 10px;
+	color: var(--cu-text-muted);
+	margin-left: auto;
+}
+.cu-inline-preview {
+	font-size: 11px;
+	font-family: 'SF Mono', Menlo, Monaco, monospace;
+	color: var(--cu-text-sub);
+	background: var(--cu-bg-active);
+	padding: 6px 8px;
+	border-radius: 4px;
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-height: 40px;
+	line-height: 1.4;
 }

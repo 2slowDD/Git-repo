@@ -3,9 +3,16 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use CodeUnloader\Core\{RuleRepository, Installer, PatternMatcher};
 
 class AdminScreen {
+
+	/** Stored page hook suffix so load-{hook} and screen options can reference it. */
+	private string $page_hook = '';
 
 	public function init(): void {
 		add_action( 'admin_menu',    [ $this, 'register_menu' ] );
@@ -14,17 +21,49 @@ class AdminScreen {
 		add_action( 'admin_notices', [ $this, 'show_notices' ] );
 		add_action( 'current_screen',  [ $this, 'maybe_hook_delete_confirmation' ] );
 
+		// Allow WordPress to save our per_page screen option value.
+		add_filter( 'set_screen_option_cu_rules_per_page', [ $this, 'save_screen_option' ], 10, 3 );
+
 		// Upgrade check
 		Installer::maybe_upgrade();
 	}
 
+	/**
+	 * Callback for set_screen_option_{option} — return the sanitized value to save it.
+	 *
+	 * @param mixed  $status  False by default; return a value to save it.
+	 * @param string $option  Option name.
+	 * @param mixed  $value   Submitted value.
+	 * @return int
+	 */
+	public function save_screen_option( $status, string $option, $value ): int {
+		$value = (int) $value;
+		// Clamp to allowed values: 10, 20, 50.
+		return in_array( $value, [ 10, 20, 50 ], true ) ? $value : 10;
+	}
+
 	public function register_menu(): void {
-		add_options_page(
+		$this->page_hook = (string) add_options_page(
 			__( 'Code Unloader', 'code-unloader' ),
 			__( 'Code Unloader', 'code-unloader' ),
 			'manage_options',
 			'code-unloader',
 			[ $this, 'render_page' ]
+		);
+
+		// Register the per-page screen option on the plugin's own admin page.
+		add_action( 'load-' . $this->page_hook, [ $this, 'register_screen_options' ] );
+	}
+
+	/** Register per-page screen option for the Rules tab. */
+	public function register_screen_options(): void {
+		add_screen_option(
+			'per_page',
+			[
+				'label'   => __( 'Rules per page', 'code-unloader' ),
+				'default' => 10,
+				'option'  => 'cu_rules_per_page',
+			]
 		);
 	}
 
@@ -45,7 +84,7 @@ class AdminScreen {
 	public function handle_actions(): void {
 		// Handle GET actions (export)
 		if ( isset( $_GET['cu_action'] ) && current_user_can( 'manage_options' ) ) {
-			$action = sanitize_text_field( $_GET['cu_action'] );
+			$action = sanitize_text_field( wp_unslash( $_GET['cu_action'] ) );
 			check_admin_referer( 'cu_admin_action' );
 
 			if ( 'export' === $action ) {
@@ -58,7 +97,7 @@ class AdminScreen {
 		if ( ! isset( $_POST['cu_action'] ) || ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$action = sanitize_text_field( $_POST['cu_action'] );
+		$action = sanitize_text_field( wp_unslash( $_POST['cu_action'] ) );
 		check_admin_referer( 'cu_admin_action' );
 
 		switch ( $action ) {
@@ -89,10 +128,20 @@ class AdminScreen {
 	}
 
 	private function handle_import(): void {
+		if ( ! check_admin_referer( 'cu_admin_action' ) ) {
+			return;
+		}
 		if ( empty( $_FILES['cu_import_file']['tmp_name'] ) ) {
 			return;
 		}
-		$json = file_get_contents( $_FILES['cu_import_file']['tmp_name'] );
+		$tmp_name = sanitize_text_field( wp_unslash( $_FILES['cu_import_file']['tmp_name'] ) );
+
+		global $wp_filesystem;
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		WP_Filesystem();
+		$json = $wp_filesystem->get_contents( $tmp_name );
 		$data = json_decode( $json, true );
 
 		if ( ! is_array( $data ) || empty( $data['rules'] ) ) {
@@ -109,6 +158,7 @@ class AdminScreen {
 		}
 
 		add_settings_error( 'cu_import', 'success',
+			/* translators: %d: number of imported rules */
 			sprintf( __( 'Imported %d rules.', 'code-unloader' ), $imported ),
 			'updated'
 		);
@@ -126,7 +176,8 @@ class AdminScreen {
 			return;
 		}
 
-		$tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'rules';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Tab navigation, no data modification.
+		$tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'rules';
 		$valid_tabs = [ 'rules', 'groups', 'log', 'settings' ];
 		if ( ! in_array( $tab, $valid_tabs, true ) ) {
 			$tab = 'rules';
@@ -138,11 +189,20 @@ class AdminScreen {
 		echo '<div class="cu-header">';
 		echo '<img src="' . esc_url( CU_URL . 'assets/img/CU_icon_200x200.png' ) . '" alt="Code Unloader" class="cu-header-icon">';
 		echo '<div class="cu-header-text">';
-		echo '<h1 class="cu-header-title">' . esc_html__( 'Code Unloader', 'code-unloader' ) . '</h1>';
-		echo '<p class="cu-header-subtitle">' . sprintf(
-			/* translators: %s: link to WPservice.pro */
-			__( 'by Dalibor Druzinec / %s', 'code-unloader' ),
-			'<a href="https://wpservice.pro/" target="_blank" rel="noopener noreferrer">WPservice.pro</a>'
+		echo '<h1 class="cu-header-title">' . esc_html__( 'Code Unloader', 'code-unloader' ) . ' <span class="cu-header-version">v' . esc_html( CU_VERSION ) . '</span></h1>';
+		echo '<p class="cu-header-subtitle">' . wp_kses(
+			sprintf(
+				/* translators: %s: link to WPservice.pro */
+				__( 'by Dalibor Druzinec / %s', 'code-unloader' ),
+				'<a href="https://wpservice.pro/" target="_blank" rel="noopener noreferrer">WPservice.pro</a>'
+			),
+			[
+				'a' => [
+					'href'   => [],
+					'target' => [],
+					'rel'    => [],
+				],
+			]
 		) . '</p>';
 		echo '</div>';
 		echo '</div>';
@@ -182,25 +242,33 @@ class AdminScreen {
 	// Rules Tab
 	// -------------------------------------------------------------------------
 	private function render_rules_tab(): void {
-		// Summary bar
+		// Summary bar — count only active rules (disabled-group rules are suspended, not shown).
 		global $wpdb;
-		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}cu_rules" );
+		$count = wp_cache_get( 'cu_rules_count' );
+		if ( false === $count ) {
+			$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+				"SELECT COUNT(*) FROM {$wpdb->prefix}cu_rules r
+				 LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id
+				 WHERE (g.enabled = 1 OR r.group_id IS NULL)"
+			);
+			wp_cache_set( 'cu_rules_count', $count );
+		}
 
 		// Stale rule detection — check after wp_enqueue_scripts has fired
 		// We do this here because the admin screen loads after enqueue.
 		$stale_ids = \CodeUnloader\Core\RuleRepository::get_stale_rule_ids();
 		if ( ! empty( $stale_ids ) ) {
 			$count_stale = count( $stale_ids );
-			$ids_json    = esc_attr( wp_json_encode( $stale_ids ) );
-			echo '<div class="notice notice-warning cu-stale-notice" data-stale-ids="' . $ids_json . '">';
+			echo '<div class="notice notice-warning cu-stale-notice" data-stale-ids="' . esc_attr( (string) wp_json_encode( $stale_ids ) ) . '">';
 			echo '<p><strong>' . sprintf(
+				/* translators: %d: number of stale rules */
 				esc_html( _n(
 					'%d stale rule detected — the asset handle it references is no longer registered in WordPress.',
 					'%d stale rules detected — these asset handles are no longer registered in WordPress.',
 					$count_stale,
 					'code-unloader'
 				) ),
-				$count_stale
+				(int) $count_stale
 			) . '</strong> ';
 			echo '<button type="button" class="button button-small" id="cu-delete-stale-btn">'
 				. esc_html__( 'Delete stale rules', 'code-unloader' ) . '</button></p>';
@@ -208,10 +276,11 @@ class AdminScreen {
 		}
 
 		echo '<div class="cu-summary-bar">';
-		echo '<span>' . sprintf( esc_html__( '%d total rules', 'code-unloader' ), $count ) . '</span>';
+		/* translators: %d: number of rules */
+		echo '<span id="cu-total-rules-count">' . sprintf( esc_html__( '%d total rules', 'code-unloader' ), (int) $count ) . '</span>';
 		echo '<span> &bull; </span>';
 		$kill = get_option( CU_OPTION_KILL ) ? '<span class="cu-kill-pill">' . esc_html__( 'Kill switch ON', 'code-unloader' ) . '</span>' : '<span class="cu-active-pill">' . esc_html__( 'Rules active', 'code-unloader' ) . '</span>';
-		echo $kill;
+		echo wp_kses_post( $kill );
 		echo '</div>';
 
 		// List table
@@ -239,7 +308,8 @@ class AdminScreen {
 			echo '<div class="cu-group-card' . esc_attr( $disabled_class ) . '" data-group-id="' . esc_attr( $group->id ) . '">';
 			echo '<div class="cu-group-card-header">';
 			echo '<strong>' . esc_html( $group->name ) . '</strong>';
-			echo '<span class="cu-group-rule-count">' . sprintf( esc_html__( '%d rules', 'code-unloader' ), $group->rule_count ) . '</span>';
+			/* translators: %d: number of rules in a group */
+			echo '<span class="cu-group-rule-count">' . sprintf( esc_html__( '%d rules', 'code-unloader' ), (int) $group->rule_count ) . '</span>';
 			echo '</div>';
 			if ( $group->description ) {
 				echo '<p class="cu-group-desc">' . esc_html( $group->description ) . '</p>';

@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class DeviceDetector {
 
 	private static ?bool $is_mobile_cache = null;
@@ -12,7 +16,7 @@ class DeviceDetector {
 			return self::$is_mobile_cache;
 		}
 
-		$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
 
 		// Lightweight UA check — no external library required
 		$mobile_keywords = [

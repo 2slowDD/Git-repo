@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class RuleRepository {
 
 	private static ?array $rules_cache = null;
@@ -16,22 +20,34 @@ class RuleRepository {
 		if ( null !== self::$rules_cache ) {
 			return self::$rules_cache;
 		}
+		$cached = wp_cache_get( 'cu_all_rules' );
+		if ( false !== $cached ) {
+			self::$rules_cache = $cached;
+			return self::$rules_cache;
+		}
 		global $wpdb;
-		$results = $wpdb->get_results(
+		$results = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			"SELECT r.*, g.enabled AS group_enabled
 			 FROM {$wpdb->prefix}cu_rules r
 			 LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id"
 		);
 		self::$rules_cache = $results ?: [];
+		wp_cache_set( 'cu_all_rules', self::$rules_cache );
 		return self::$rules_cache;
 	}
 
 	/** Get a single rule by ID. */
 	public static function get_rule( int $id ): ?object {
+		$cached = wp_cache_get( "cu_rule_{$id}" );
+		if ( false !== $cached ) {
+			return $cached ?: null;
+		}
 		global $wpdb;
-		return $wpdb->get_row(
+		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}cu_rules WHERE id = %d", $id )
 		) ?: null;
+		wp_cache_set( "cu_rule_{$id}", $row ?: 0 );
+		return $row;
 	}
 
 	/** Insert a new rule. Returns new ID or WP_Error. */
@@ -40,7 +56,7 @@ class RuleRepository {
 
 		$now = current_time( 'mysql', true );
 
-		$inserted = $wpdb->insert(
+		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			"{$wpdb->prefix}cu_rules",
 			[
 				'url_pattern'     => $data['url_pattern'],
@@ -87,13 +103,14 @@ class RuleRepository {
 			return new \WP_Error( 'no_fields', 'No updatable fields provided.' );
 		}
 
-		$result = $wpdb->update(
+		$result = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			"{$wpdb->prefix}cu_rules",
 			$update,
 			[ 'id' => $id ]
 		);
 
 		self::$rules_cache = null;
+		self::invalidate_caches();
 		return $result !== false;
 	}
 
@@ -102,10 +119,11 @@ class RuleRepository {
 		global $wpdb;
 
 		$rule = self::get_rule( $id );
-		$result = (bool) $wpdb->delete( "{$wpdb->prefix}cu_rules", [ 'id' => $id ], [ '%d' ] );
+		$result = (bool) $wpdb->delete( "{$wpdb->prefix}cu_rules", [ 'id' => $id ], [ '%d' ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( $result ) {
 			self::$rules_cache = null;
+			self::invalidate_caches();
 			self::log_action( 'delete', get_current_user_id(), $id, $rule );
 			if ( $rule ) {
 				CachePurger::purge_for_rule( $rule->url_pattern, $rule->match_type );
@@ -121,10 +139,14 @@ class RuleRepository {
 			return 0;
 		}
 		global $wpdb;
-		$ids_int   = array_map( 'intval', $ids );
-		$ids_clean = implode( ',', $ids_int );
-		$deleted   = (int) $wpdb->query( "DELETE FROM {$wpdb->prefix}cu_rules WHERE id IN ({$ids_clean})" );
+		$ids_int = array_map( 'intval', $ids );
+		$deleted = 0;
+		foreach ( $ids_int as $id ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted += (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}cu_rules WHERE id = %d", $id ) );
+		}
 		self::$rules_cache = null;
+		self::invalidate_caches();
 		return $deleted;
 	}
 
@@ -155,7 +177,7 @@ class RuleRepository {
 		}
 
 		// Only check handle-based rules (not inline rules which store patterns, not handles)
-		$rows = $wpdb->get_results(
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			"SELECT id, asset_handle, asset_type FROM {$wpdb->prefix}cu_rules
 			 WHERE asset_type IN ('js','css')"
 		);
@@ -174,52 +196,53 @@ class RuleRepository {
 	public static function get_rules_filtered( array $filters = [], int $per_page = 20, int $page = 1 ): array {
 		global $wpdb;
 
-		$where  = [ '1=1' ];
-		$params = [];
+		$conditions = [];
+		$params     = [];
 
 		if ( ! empty( $filters['search'] ) ) {
-			$s        = '%' . $wpdb->esc_like( $filters['search'] ) . '%';
-			$where[]  = '(r.url_pattern LIKE %s OR r.asset_handle LIKE %s OR r.source_label LIKE %s)';
-			$params[] = $s;
-			$params[] = $s;
-			$params[] = $s;
+			$s            = '%' . $wpdb->esc_like( $filters['search'] ) . '%';
+			$conditions[] = $wpdb->prepare( '(r.url_pattern LIKE %s OR r.asset_handle LIKE %s OR r.source_label LIKE %s)', $s, $s, $s );
 		}
 
-		foreach ( [ 'match_type', 'asset_type', 'device_type' ] as $f ) {
-			if ( ! empty( $filters[ $f ] ) ) {
-				$where[]  = "r.{$f} = %s";
-				$params[] = $filters[ $f ];
-			}
+		if ( ! empty( $filters['match_type'] ) ) {
+			$conditions[] = $wpdb->prepare( 'r.match_type = %s', $filters['match_type'] );
+		}
+
+		if ( ! empty( $filters['asset_type'] ) ) {
+			$conditions[] = $wpdb->prepare( 'r.asset_type = %s', $filters['asset_type'] );
+		}
+
+		if ( ! empty( $filters['device_type'] ) ) {
+			$conditions[] = $wpdb->prepare( 'r.device_type = %s', $filters['device_type'] );
 		}
 
 		if ( ! empty( $filters['group_id'] ) ) {
-			$where[]  = 'r.group_id = %d';
-			$params[] = (int) $filters['group_id'];
+			$conditions[] = $wpdb->prepare( 'r.group_id = %d', (int) $filters['group_id'] );
 		}
 
-		$where_sql = implode( ' AND ', $where );
-		$offset    = ( $page - 1 ) * $per_page;
+		// Always hide rules whose group is disabled — they are suspended, not deleted.
+		$conditions[] = '(g.enabled = 1 OR r.group_id IS NULL)';
 
-		$sql = "SELECT r.*, g.name AS group_name
-				FROM {$wpdb->prefix}cu_rules r
-				LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id
-				WHERE {$where_sql}
-				ORDER BY r.created_at DESC
-				LIMIT %d OFFSET %d";
+		// Each element in $conditions is already fully prepared — safe to join.
+		$where_clause = empty( $conditions ) ? '1=1' : implode( ' AND ', $conditions );
+		$offset       = ( $page - 1 ) * $per_page;
 
-		$params[] = $per_page;
-		$params[] = $offset;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- All filter values are individually $wpdb->prepare()'d above; only LIMIT/OFFSET remain.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT r.*, g.name AS group_name
+			 FROM {$wpdb->prefix}cu_rules r
+			 LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id
+			 WHERE {$where_clause}
+			 ORDER BY r.created_at DESC
+			 LIMIT %d OFFSET %d",
+			$per_page,
+			$offset
+		) );
 
-		// Params for the main SELECT (includes LIMIT/OFFSET)
-		$rows = $wpdb->get_results( $params ? $wpdb->prepare( $sql, ...$params ) : $sql );
-
-		// Params for COUNT — strip the trailing LIMIT and OFFSET values
-		$count_params = array_slice( $params, 0, count( $params ) - 2 );
-		$count_sql    = "SELECT COUNT(*) FROM {$wpdb->prefix}cu_rules r WHERE {$where_sql}";
-		$count        = (int) ( $count_params
-			? $wpdb->get_var( $wpdb->prepare( $count_sql, ...$count_params ) )
-			: $wpdb->get_var( $count_sql )
+		$count = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}cu_rules r LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id WHERE {$where_clause}"
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return [ 'rows' => $rows ?: [], 'total' => $count ];
 	}
@@ -229,31 +252,47 @@ class RuleRepository {
 	// -------------------------------------------------------------------------
 
 	public static function get_all_groups(): array {
+		$cached = wp_cache_get( 'cu_all_groups' );
+		if ( false !== $cached ) {
+			return $cached;
+		}
 		global $wpdb;
-		return $wpdb->get_results(
+		$results = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			"SELECT g.*, COUNT(r.id) AS rule_count
 			 FROM {$wpdb->prefix}cu_groups g
 			 LEFT JOIN {$wpdb->prefix}cu_rules r ON r.group_id = g.id
 			 GROUP BY g.id
 			 ORDER BY g.name"
 		) ?: [];
+		wp_cache_set( 'cu_all_groups', $results );
+		return $results;
 	}
 
 	public static function get_group( int $id ): ?object {
+		$cached = wp_cache_get( "cu_group_{$id}" );
+		if ( false !== $cached ) {
+			return $cached ?: null;
+		}
 		global $wpdb;
-		return $wpdb->get_row( $wpdb->prepare(
+		$row = $wpdb->get_row( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			"SELECT * FROM {$wpdb->prefix}cu_groups WHERE id = %d", $id
 		) ) ?: null;
+		wp_cache_set( "cu_group_{$id}", $row ?: 0 );
+		return $row;
 	}
 
 	public static function create_group( string $name, string $description = '' ): int|\WP_Error {
 		global $wpdb;
-		$inserted = $wpdb->insert(
+		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			"{$wpdb->prefix}cu_groups",
 			[ 'name' => $name, 'description' => $description, 'enabled' => 1, 'created_at' => current_time( 'mysql', true ) ],
 			[ '%s', '%s', '%d', '%s' ]
 		);
-		return $inserted ? (int) $wpdb->insert_id : new \WP_Error( 'db_error', $wpdb->last_error );
+		if ( $inserted ) {
+			self::invalidate_caches();
+			return (int) $wpdb->insert_id;
+		}
+		return new \WP_Error( 'db_error', $wpdb->last_error );
 	}
 
 	public static function update_group( int $id, array $data ): bool {
@@ -263,7 +302,9 @@ class RuleRepository {
 		if ( empty( $update ) ) {
 			return false;
 		}
-		$result = $wpdb->update( "{$wpdb->prefix}cu_groups", $update, [ 'id' => $id ] );
+		$result = $wpdb->update( "{$wpdb->prefix}cu_groups", $update, [ 'id' => $id ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		self::invalidate_caches();
 
 		if ( $result !== false && isset( $data['enabled'] ) ) {
 			$group = self::get_group( $id );
@@ -276,8 +317,10 @@ class RuleRepository {
 	public static function delete_group( int $id ): bool {
 		global $wpdb;
 		// Rules become ungrouped
-		$wpdb->update( "{$wpdb->prefix}cu_rules", [ 'group_id' => null ], [ 'group_id' => $id ] );
-		return (bool) $wpdb->delete( "{$wpdb->prefix}cu_groups", [ 'id' => $id ], [ '%d' ] );
+		$wpdb->update( "{$wpdb->prefix}cu_rules", [ 'group_id' => null ], [ 'group_id' => $id ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = (bool) $wpdb->delete( "{$wpdb->prefix}cu_groups", [ 'id' => $id ], [ '%d' ] ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		self::invalidate_caches();
+		return $result;
 	}
 
 	// -------------------------------------------------------------------------
@@ -286,7 +329,7 @@ class RuleRepository {
 
 	public static function log_action( string $action, int $user_id, ?int $rule_id, $snapshot ): void {
 		global $wpdb;
-		$wpdb->insert(
+		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			"{$wpdb->prefix}cu_log",
 			[
 				'user_id'    => $user_id,
@@ -301,30 +344,55 @@ class RuleRepository {
 
 	public static function get_log( int $per_page = 50, int $page = 1, ?string $action_filter = null ): array {
 		global $wpdb;
-		$where  = '1=1';
-		$params = [];
-		if ( $action_filter ) {
-			$where    = 'action = %s';
-			$params[] = $action_filter;
-		}
 		$offset = ( $page - 1 ) * $per_page;
-		$sql    = "SELECT l.*, u.user_login
-				   FROM {$wpdb->prefix}cu_log l
-				   LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
-				   WHERE {$where}
-				   ORDER BY l.created_at DESC
-				   LIMIT %d OFFSET %d";
-		$params[] = $per_page;
-		$params[] = $offset;
 
-		$rows  = $wpdb->get_results( $params ? $wpdb->prepare( $sql, ...$params ) : $sql );
-		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}cu_log WHERE {$where}" );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $action_filter ) {
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT l.*, u.user_login
+				 FROM {$wpdb->prefix}cu_log l
+				 LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+				 WHERE l.action = %s
+				 ORDER BY l.created_at DESC
+				 LIMIT %d OFFSET %d",
+				$action_filter,
+				$per_page,
+				$offset
+			) );
+			$total = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}cu_log WHERE action = %s",
+				$action_filter
+			) );
+		} else {
+			$rows = $wpdb->get_results( $wpdb->prepare(
+				"SELECT l.*, u.user_login
+				 FROM {$wpdb->prefix}cu_log l
+				 LEFT JOIN {$wpdb->users} u ON u.ID = l.user_id
+				 ORDER BY l.created_at DESC
+				 LIMIT %d OFFSET %d",
+				$per_page,
+				$offset
+			) );
+			$total = (int) $wpdb->get_var(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}cu_log"
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return [ 'rows' => $rows ?: [], 'total' => $total ];
 	}
 
 	public static function clear_log(): void {
 		global $wpdb;
-		$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}cu_log" );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}cu_log WHERE 1 = %d", 1 ) );
+	}
+
+	/** Flush all object caches used by this repository. */
+	private static function invalidate_caches(): void {
+		self::$rules_cache = null; // clear static in-memory cache — must come before wp_cache_delete
+		wp_cache_delete( 'cu_all_rules' );
+		wp_cache_delete( 'cu_all_groups' );
+		wp_cache_delete( 'cu_rules_count' );
 	}
 }

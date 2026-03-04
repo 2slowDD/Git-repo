@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class PatternMatcher {
 
 	/**
@@ -38,10 +42,15 @@ class PatternMatcher {
 
 		// Guard against catastrophic backtracking
 		$prev_limit = ini_get( 'pcre.backtrack_limit' );
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged,WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_ini_set -- Temporary limit to prevent ReDoS.
 		ini_set( 'pcre.backtrack_limit', '100000' );
 
-		$result = @preg_match( $delimited, $url );
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_set_error_handler -- Capturing preg_match warnings gracefully.
+		set_error_handler( static function (): bool { return true; } );
+		$result = preg_match( $delimited, $url );
+		restore_error_handler();
 
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged,WordPress.PHP.DiscouragedPHPFunctions.runtime_configuration_ini_set -- Restoring original limit.
 		ini_set( 'pcre.backtrack_limit', (string) $prev_limit );
 
 		return $result === 1;
@@ -63,6 +72,7 @@ class PatternMatcher {
 
 			// Capture PHP warnings from preg_match
 			$error = null;
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_set_error_handler -- Capturing preg_match compile errors for user feedback.
 			set_error_handler( function ( int $errno, string $errstr ) use ( &$error ): bool {
 				$error = $errstr;
 				return true;
@@ -71,6 +81,7 @@ class PatternMatcher {
 			restore_error_handler();
 
 			if ( null !== $error ) {
+				/* translators: %s: regex error message */
 				return sprintf( __( 'Invalid regex: %s', 'code-unloader' ), $error );
 			}
 		}

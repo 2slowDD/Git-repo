@@ -1,10 +1,10 @@
 === Code Unloader ===
-Contributors: pluginowner
+Contributors: dalibordruzinec
 Tags: performance, assets, scripts, styles, dequeue
 Requires at least: 6.2
-Tested up to: 6.7
+Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.0
+Stable tag: 1.2.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,6 +27,7 @@ Code Unloader gives site administrators surgical control over which JavaScript a
 * Conditional rules (logged-in users, WooCommerce pages, shortcodes, post types)
 * Device-type rules (desktop-only or mobile-only)
 * Inline script/style blocking for assets without registered handles
+* Inline block detection — see every inline `<script>` and `<style>` on the page
 * Rule groups for managing sets of rules as a unit
 * Full audit log of all changes
 * JSON import/export
@@ -34,14 +35,21 @@ Code Unloader gives site administrators surgical control over which JavaScript a
 
 **Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi.
 
+**Requirements:** PHP 8.0 or higher is required. The plugin uses modern PHP features (union types, match expressions, named functions) that are not available in PHP 7.x.
+
+**Note:** It's recommended to test changes on a staging environment before applying them to a live site. Unloading the wrong assets can break your site's appearance or functionality.
+
 == Installation ==
 
 1. Upload the plugin files to `/wp-content/plugins/code-unloader`
 2. Activate the plugin through the **Plugins** screen in WordPress
-3. Visit any page while logged in as an admin and click **Assets** in the Admin Toolbar
+3. Visit any page while logged in as an admin and click **⚡ Assets** in the Admin Toolbar
 4. Toggle off any asset — a rule creation dialog will appear
 
 == Frequently Asked Questions ==
+
+= What PHP version do I need? =
+PHP 8.0 or higher. The plugin will not activate on PHP 7.x.
 
 = Will my rules survive a cache flush? =
 Yes. Rules are stored in a custom database table and are not affected by caching plugin cache clears.
@@ -50,10 +58,13 @@ Yes. Rules are stored in a custom database table and are not affected by caching
 The kill switch is a one-click emergency recovery button in **Settings > Code Unloader > Settings**. When active, all rules are bypassed and every asset loads normally. Your rules are not deleted — they resume when you deactivate the kill switch.
 
 = What does the ?wpcu parameter do? =
-Appending `?wpcu` to any frontend URL will automatically open the asset panel for logged-in administrators, even on pages where the Admin Toolbar is hidden.
+Appending `?wpcu` to any frontend URL will automatically open the asset panel for logged-in administrators, even on pages where the Admin Toolbar is hidden. The parameter stays in the URL while the panel is open and is removed when you close it.
 
 = Does it support regex? =
 Yes. When creating a rule, choose **Regular Expression** as the match type. Patterns are validated before saving, and a regex warning is shown to help you keep patterns specific.
+
+= What are inline blocks? =
+Inline blocks are `<script>` and `<style>` tags that are printed directly into the page HTML rather than being registered through WordPress's enqueue system. The Inline Blocks tab in the panel detects and lists these blocks so you can identify them.
 
 == Screenshots ==
 
@@ -66,10 +77,98 @@ Yes. When creating a rule, choose **Regular Expression** as the match type. Patt
 
 == Changelog ==
 
+= 1.2.4 =
+* Style: Source header row (light) — gradient from subtle purple to deep red tint
+* Style: Source header row (dark) — gradient from #f0f0f0 to deep red tint; chevron now white
+* Style: Warning banner — stronger red gradient applied to both themes
+
+
+= 1.2.3 =
+* Style: Toggle track for unloaded (off) assets changed to red (#cc1818) in both light and dark themes
+* Improved: Group-disabled assets now show both the blue "Group: X" badge and a red "Disabled (match_type)" badge, consistent with non-grouped disabled assets
+
+
+= 1.2.2 =
+* Style: Source group header rows now have a distinct background to visually separate plugins
+* Style: Light theme — header row background: #5500cc52 (semi-transparent purple); count/size/action badges: white with dark text
+* Style: Dark theme — header row background: #f0f0f0; source label color: #234897; all badges remain white-on-dark for contrast
+* All new colour pairs verified against WCAG AA contrast ratios
+
+
+= 1.2.1 =
+* Fixed: Disabled-group rules now correctly excluded from panel rule_map at PHP render time (FrontendPanel)
+* Fixed: Same (int) cast bug found and fixed in InlineBlocker group_enabled check
+* Fixed: REST get_rules endpoint page_url branch now skips disabled-group rules
+
+
+= 1.2.1 =
+* Fixed: Disabling a group now suspends its rules — they disappear from the Rules tab, assets load normally on frontend and in panel
+* Fixed: "N total rules" count and Rules table now exclude suspended (disabled-group) rules
+* Fixed: COUNT query in get_rules_filtered now JOINs groups table so the group-enabled filter applies correctly to pagination totals
+* Fixed: Panel (GET /assets) now skips disabled-group rules so assets correctly show as Active when their group is disabled
+
+
+= 1.2.0 =
+* Fixed: Disabling a group now correctly stops its rules from being applied — wpdb returns column values as strings, so "0" was truthy and the group-disabled check never fired; fixed with explicit (int) cast
+
+
+= 1.1.9 =
+* Fixed: "N total rules" counter now updates instantly after any delete (single, bulk, stale) — no page reload needed
+* Fixed: Disabling a group now immediately stops its rules from being applied on the frontend — root cause was static in-memory rule cache not being cleared when group enabled state changed
+
+
+= 1.1.8 =
+* Fixed: "Assign" / "Save" button stays greyed out after first group assignment — button now always re-enables after any outcome
+* Fixed: Group column shows raw ID instead of name when assigning to a newly created group — integer type mismatch corrected
+* Improved: Panel now live-syncs rule_map and groups from the REST API on every open — admin changes are reflected without a page reload
+* Fixed: GET /assets endpoint now keys rules by handle|type (not handle alone) so same-handle JS+CSS rules both survive
+
+
+= 1.1.7 =
+* Improved: Admin layout widened from 1100px to 1200px
+* Improved: Rules table now defaults to 10 per page (was 20)
+* Added: "Rules per page" screen option (10 / 20 / 50) accessible via Screen Options tab at the top of the admin page
+
+
+= 1.1.6 =
+* Fixed: Group column in Rules table now updates instantly after bulk-assign — no page reload needed
+
+
+= 1.1.5 =
+* Added: "Group" column in admin Rules table — shows group name as a teal pill, or "—" if ungrouped
+* Improved: Settings icon in panel header replaced with a clean solid SVG gear (matches browser native style)
+
+
+= 1.1.4 =
+* Fixed: Plugin zip now correctly extracts to `code-unloader/` folder — resolves all PCP text domain mismatch false positives caused by wrong folder name
+* Added: Settings (⚙) icon button in panel header — links directly to the Code Unloader admin screen
+
+= 1.1.3 =
+* Improved: Disable Asset dialog widened from 560px to 660px for better readability
+* Improved: Version number now displayed next to plugin title in admin screen header
+* Fixed: Inline Blocks info message no longer references an unbuilt feature
+
+= 1.1.2 =
+* Added: Version displayed in panel header (plugin version + panel.js/panel.css file versions)
+* Added: "Everywhere except here" scope option in the Disable Asset dialog
+* Improved: Inline Blocks tab now shows informational notice — blocks cannot be unloaded from the panel
+* Improved: Inline Blocks CSS items now styled in blue (matching Assets tab), JS items in amber/yellow
+* Improved: Inline Blocks can be grouped by type (JS / CSS) via a toggle button
+* Fixed: Removed noisy "[Code Unloader] inline_blocks: N detected" console log
+* Fixed: "Save Rule" button text now has full contrast in light mode
+* Fixed: "Cancel" button text now visible on hover in dark mode
+
+= 1.1.0 =
+* Fixed: Panel now persists across page refresh (?wpcu stays in URL)
+* Fixed: Inline Blocks tab now detects and displays inline scripts and styles
+* Fixed: Close button properly strips ?wpcu so refresh after close won't reopen
+* Improved: Version-stamped asset files for easier cache debugging
+* Improved: Updated readme with PHP 8.0 requirement explanation and inline blocks FAQ
+
 = 1.0.0 =
 * Initial release
 
 == Upgrade Notice ==
 
-= 1.0.0 =
-Initial release.
+= 1.1.0 =
+Panel persistence and inline block detection fixes. Bump to v1.1.0 recommended.

@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class InlineBlocker {
 
 	private array $head_rules   = [];
@@ -36,12 +40,12 @@ class InlineBlocker {
 
 	public function end_head_buffer(): void {
 		$html = ob_get_clean();
-		echo $this->filter_inline_blocks( (string) $html, $this->head_rules );
+		echo $this->filter_inline_blocks( (string) $html, $this->head_rules ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Buffered wp_head output, selectively filtering inline blocks.
 	}
 
 	public function end_footer_buffer(): void {
 		$html = ob_get_clean();
-		echo $this->filter_inline_blocks( (string) $html, $this->footer_rules );
+		echo $this->filter_inline_blocks( (string) $html, $this->footer_rules ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Buffered wp_footer output, selectively filtering inline blocks.
 	}
 
 	private function filter_inline_blocks( string $html, array $rules ): string {
@@ -80,7 +84,7 @@ class InlineBlocker {
 			if ( ! in_array( $rule->asset_type, [ 'inline_js', 'inline_css' ], true ) ) {
 				return false;
 			}
-			if ( isset( $rule->group_id ) && $rule->group_id && ! $rule->group_enabled ) {
+			if ( isset( $rule->group_id ) && $rule->group_id && ! (int) ( $rule->group_enabled ?? 1 ) ) {
 				return false;
 			}
 			return PatternMatcher::match( $rule, $url );

@@ -3,14 +3,14 @@
  * Plugin Name: Code Unloader
  * Plugin URI:  https://wordpress.org/plugins/code-unloader/
  * Description: Per-page JavaScript & CSS asset management. Surgically dequeue scripts and styles on any page using exact, wildcard, or regex URL rules.
- * Version:     1.0.0
+ * Version:     1.2.4
  * Requires at least: 6.2
  * Requires PHP: 8.0
- * Author:      Plugin Owner
+ * Author:      Dalibor Druzinec
+ * Author URI:  https://wpservice.pro
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: code-unloader
- * Domain Path: /languages
  */
 
 declare( strict_types=1 );
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Constants
-define( 'CU_VERSION',     '1.0.0' );
+define( 'CU_VERSION',     '1.2.4' );
 define( 'CU_FILE',        __FILE__ );
 define( 'CU_DIR',         plugin_dir_path( __FILE__ ) );
 define( 'CU_URL',         plugin_dir_url( __FILE__ ) );

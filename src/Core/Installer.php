@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class Installer {
 
 	public static function activate(): void {
@@ -18,9 +22,11 @@ class Installer {
 		// Called from uninstall.php when user explicitly deletes the plugin
 		// and has confirmed data removal.
 		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cu_log" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cu_rules" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cu_groups" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
 		delete_option( CU_OPTION_KILL );
 		delete_option( CU_OPTION_DBVER );
 		delete_transient( 'code_unloader_source_map' );

@@ -1,11 +1,10 @@
 /**
- * Code Unloader — Frontend Panel v7
+ * Code Unloader — Frontend Panel
+ * panel.js v10
  *
- * New in v7:
- * - Dock left/right toggle (persisted in localStorage)
- * - "Disable all in group" button per source group
- * - First-use caution warning with "don't show again"
- * - Uninstall confirmation intercepted on plugins page (handled in AdminScreen.php)
+ * v10 changes:
+ * - Live sync: rule_map and groups re-fetched from REST on every panel open
+ *   so changes made in the admin screen are reflected immediately
  */
 
 var cuTogglePanel = function () {
@@ -21,8 +20,16 @@ var cuOpenPanel = function () {
 	panel.removeAttribute('inert');
 	panel.classList.add('cu-panel--open');
 	if (!window._cuRendered) {
+		// First open: render immediately with baked-in PHP data, then refresh in background.
 		window._cuRendered = true;
-		if (window._cu) window._cu.renderAssets();
+		if (window._cu) {
+			window._cu.renderAssets();
+			window._cu.renderInlineBlocks();
+			window._cu.syncData(); // background refresh to catch any admin changes
+		}
+	} else {
+		// Subsequent opens: always sync so admin changes are reflected immediately.
+		if (window._cu) window._cu.syncData();
 	}
 };
 
@@ -33,10 +40,20 @@ var cuClosePanel = function () {
 	setTimeout(function () {
 		if (!panel.classList.contains('cu-panel--open')) panel.setAttribute('inert', '');
 	}, 280);
+	// Remove ?wpcu from URL so refresh won't reopen
+	try {
+		var u = new URL(window.location.href);
+		if (u.searchParams.has('wpcu')) {
+			u.searchParams.delete('wpcu');
+			history.replaceState(null, '', u.toString());
+		}
+	} catch (ignore) {}
 };
 
 (function () {
 	'use strict';
+	/* eslint-disable no-console */
+	console.log('[Code Unloader] panel.js v10 loaded');
 
 	var D       = window.CU_DATA || {};
 	var API     = D.api_base     || '';
@@ -50,7 +67,7 @@ var cuClosePanel = function () {
 	   Theme
 	   ----------------------------------------------------------------------- */
 	var THEME_KEY    = 'cu_theme';
-	var currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+	var currentTheme = localStorage.getItem(THEME_KEY) || 'light';
 
 	function applyTheme(theme) {
 		currentTheme = theme;
@@ -218,7 +235,8 @@ var cuClosePanel = function () {
 				if (rule.group_id) {
 					var gname = '';
 					groups.forEach(function (g) { if (String(g.id) === String(rule.group_id)) gname = g.name; });
-					badge = '<span class="cu-badge cu-badge--blue">Group' + (gname ? ': ' + esc(gname) : '') + '</span>';
+					badge = '<span class="cu-badge cu-badge--blue">Group' + (gname ? ': ' + esc(gname) : '') + '</span>'
+					      + ' <span class="cu-badge cu-badge--red">Disabled (' + esc(rule.match_type) + ')</span>';
 				} else if (rule.match_type === 'exact') {
 					badge = '<span class="cu-badge cu-badge--red">Disabled (exact)</span>';
 				} else {
@@ -507,6 +525,10 @@ var cuClosePanel = function () {
 		setScope: function (scope) {
 			var wrap = document.getElementById('cu-custom-pattern-wrap');
 			if (wrap) wrap.hidden = scope !== 'custom';
+			// For except_here, condition fields are auto-managed — grey them out
+			var condWrap = document.getElementById('cu-condition-wrap');
+			if (condWrap) condWrap.style.opacity = (scope === 'except_here') ? '0.4' : '';
+			if (condWrap) condWrap.style.pointerEvents = (scope === 'except_here') ? 'none' : '';
 		},
 
 		populateGroups: function () {
@@ -541,10 +563,11 @@ var cuClosePanel = function () {
 
 			var scope = (document.querySelector('input[name="cu-scope"]:checked') || {}).value || 'exact';
 			var matchType, urlPattern;
-			if      (scope === 'exact')     { matchType = 'exact';    urlPattern = pageUrl; }
-			else if (scope === 'sitewide')  { matchType = 'wildcard'; urlPattern = '/*'; }
-			else if (scope === 'all_pages') { matchType = 'wildcard'; urlPattern = '/*'; }
-			else if (scope === 'all_posts') { matchType = 'wildcard'; urlPattern = '/*'; }
+			if      (scope === 'exact')       { matchType = 'exact';    urlPattern = pageUrl; }
+			else if (scope === 'except_here') { matchType = 'wildcard'; urlPattern = '/*'; }
+			else if (scope === 'sitewide')    { matchType = 'wildcard'; urlPattern = '/*'; }
+			else if (scope === 'all_pages')   { matchType = 'wildcard'; urlPattern = '/*'; }
+			else if (scope === 'all_posts')   { matchType = 'wildcard'; urlPattern = '/*'; }
 			else {
 				matchType  = (document.querySelector('input[name="cu-match-type"]:checked') || {}).value || 'wildcard';
 				urlPattern = ((document.getElementById('cu-url-pattern') || {}).value || '').trim() || pageUrl;
@@ -554,6 +577,11 @@ var cuClosePanel = function () {
 			var condVal    = (((document.getElementById('cu-condition-value') || {}).value) || '').trim();
 			var condInvert = ((document.getElementById('cu-condition-invert') || {}).checked) ? 1 : 0;
 
+			// "Everywhere except here" = sitewide wildcard rule with current URL excluded via exact_url condition (inverted)
+			if (scope === 'except_here') {
+				condType   = 'exact_url:' + pageUrl;
+				condInvert = 1;
+			}
 			if (scope === 'all_pages' && !condType) condType = 'is_post_type:page';
 			if (scope === 'all_posts' && !condType) condType = 'is_post_type:post';
 			if (condType && condVal && condType.indexOf(':') === -1) condType = condType + ':' + condVal;
@@ -597,6 +625,162 @@ var cuClosePanel = function () {
 					saveBtn.textContent = 'Save Rule';
 				});
 		},
+	};
+
+	/* -----------------------------------------------------------------------
+	   Live sync — fetch fresh rule_map + groups from REST API on panel open
+	   so changes made in the admin screen are reflected without a page reload.
+	   ----------------------------------------------------------------------- */
+	_cu.syncData = function () {
+		if (!API || !NONCE || !pageUrl) return;
+
+		// Fetch fresh rule_map for this page
+		var rulesPromise = fetch(API + '/assets?page_url=' + encodeURIComponent(pageUrl), {
+			method: 'GET',
+			headers: { 'X-WP-Nonce': NONCE },
+		}).then(function (r) { return r.ok ? r.json() : null; });
+
+		// Fetch fresh groups list
+		var groupsPromise = fetch(API + '/groups', {
+			method: 'GET',
+			headers: { 'X-WP-Nonce': NONCE },
+		}).then(function (r) { return r.ok ? r.json() : null; });
+
+		Promise.all([rulesPromise, groupsPromise]).then(function (results) {
+			var rulesData  = results[0];
+			var groupsData = results[1];
+
+			var changed = false;
+
+			// Update ruleMap if fresh data arrived
+			if (rulesData && Array.isArray(rulesData.rules)) {
+				// Rebuild ruleMap from the fresh rule list
+				var freshMap = {};
+				rulesData.rules.forEach(function (rule) {
+					freshMap[rule.asset_handle + '|' + rule.asset_type] = rule;
+				});
+				// Only re-render if something actually changed
+				var oldKeys = Object.keys(ruleMap).sort().join(',');
+				var newKeys = Object.keys(freshMap).sort().join(',');
+				if (oldKeys !== newKeys) {
+					Object.keys(ruleMap).forEach(function (k) { delete ruleMap[k]; });
+					Object.keys(freshMap).forEach(function (k) { ruleMap[k] = freshMap[k]; });
+					changed = true;
+				}
+			}
+
+			// Update groups if fresh data arrived
+			if (groupsData && Array.isArray(groupsData)) {
+				var oldGroupStr = JSON.stringify(groups);
+				var newGroupStr = JSON.stringify(groupsData);
+				if (oldGroupStr !== newGroupStr) {
+					groups.length = 0;
+					groupsData.forEach(function (g) { groups.push(g); });
+					changed = true;
+				}
+			}
+
+			if (changed) {
+				_cu.renderAssets();
+			}
+		}).catch(function () {
+			// Sync failure is silent — panel still works with cached data
+		});
+	};
+
+	/* -----------------------------------------------------------------------
+	   Render Inline Blocks tab
+	   ----------------------------------------------------------------------- */
+	_cu.renderInlineBlocks = function () {
+		var container = document.getElementById('cu-inline-tab');
+		if (!container) return;
+
+		var blocks = D.inline_blocks || [];
+		// Note: console.log for inline_blocks count intentionally removed (task 9)
+
+		if (!blocks.length) {
+			container.innerHTML = '<p class="cu-empty">No inline scripts or styles detected on this page.</p>';
+			return;
+		}
+
+		// --- Info notice (task 6) ---
+		var infoBar = '<div class="cu-inline-info-bar">'
+			+ '<span class="cu-inline-info-icon">ℹ</span>'
+			+ '<span>Inline blocks are informational only — they cannot be unloaded from this panel.</span>'
+			+ '</div>';
+
+		// --- Group-by-type toggle (task 8) ---
+		var INLINE_GROUP_KEY = 'cu_inline_group';
+		var grouped = localStorage.getItem(INLINE_GROUP_KEY) === '1';
+
+		var toolbar = '<div class="cu-inline-toolbar">'
+			+ '<button id="cu-inline-group-btn" class="cu-inline-group-btn' + (grouped ? ' cu-inline-group-btn--active' : '') + '" title="Group by type (JS / CSS)">'
+			+ '<span>Group by type</span>'
+			+ '</button>'
+			+ '<span class="cu-inline-count">' + blocks.length + ' block' + (blocks.length !== 1 ? 's' : '') + '</span>'
+			+ '</div>';
+
+		function renderBlocks(groupByType) {
+			var html = '';
+
+			function blockHtml(b) {
+				// task 7: CSS → blue pill, JS → amber pill (matches .cu-type-css / .cu-type-js)
+				var typeLabel = b.type === 'inline_js' ? 'JS' : 'CSS';
+				var typeClass = b.type === 'inline_js' ? 'cu-type-pill cu-type-js' : 'cu-type-pill cu-type-css';
+				var sizeStr   = b.size > 1024 ? (b.size / 1024).toFixed(1) + ' KB' : b.size + ' B';
+				var idLabel   = b.id
+					? '<code class="cu-inline-id">' + esc(b.id) + '</code>'
+					: '<span class="cu-inline-noid">no id</span>';
+
+				return '<div class="cu-inline-block">'
+					+ '<div class="cu-inline-block-header">'
+					+   '<span class="' + typeClass + '">' + typeLabel + '</span> '
+					+   idLabel
+					+   '<span class="cu-inline-size">' + sizeStr + '</span>'
+					+ '</div>'
+					+ '<pre class="cu-inline-preview">' + esc(b.preview) + '</pre>'
+					+ '</div>';
+			}
+
+			if (!groupByType) {
+				blocks.forEach(function (b) { html += blockHtml(b); });
+			} else {
+				var jsBlocks  = blocks.filter(function(b){ return b.type === 'inline_js'; });
+				var cssBlocks = blocks.filter(function(b){ return b.type === 'inline_css'; });
+
+				if (jsBlocks.length) {
+					html += '<div class="cu-inline-group-header cu-inline-group-header--js">'
+						+ '<span class="cu-type-pill cu-type-js">JS</span>'
+						+ '<span class="cu-inline-group-label">Inline Scripts</span>'
+						+ '<span class="cu-inline-count">' + jsBlocks.length + '</span>'
+						+ '</div>';
+					jsBlocks.forEach(function(b){ html += blockHtml(b); });
+				}
+				if (cssBlocks.length) {
+					html += '<div class="cu-inline-group-header cu-inline-group-header--css">'
+						+ '<span class="cu-type-pill cu-type-css">CSS</span>'
+						+ '<span class="cu-inline-group-label">Inline Styles</span>'
+						+ '<span class="cu-inline-count">' + cssBlocks.length + '</span>'
+						+ '</div>';
+					cssBlocks.forEach(function(b){ html += blockHtml(b); });
+				}
+			}
+			return html;
+		}
+
+		container.innerHTML = infoBar + toolbar + '<div id="cu-inline-blocks-list">' + renderBlocks(grouped) + '</div>';
+
+		// Bind group-by-type toggle
+		var groupBtn = document.getElementById('cu-inline-group-btn');
+		if (groupBtn) {
+			groupBtn.addEventListener('click', function () {
+				grouped = !grouped;
+				localStorage.setItem(INLINE_GROUP_KEY, grouped ? '1' : '0');
+				this.classList.toggle('cu-inline-group-btn--active', grouped);
+				var list = document.getElementById('cu-inline-blocks-list');
+				if (list) list.innerHTML = renderBlocks(grouped);
+			});
+		}
 	};
 
 	/* -----------------------------------------------------------------------
@@ -737,11 +921,6 @@ var cuClosePanel = function () {
 		// Auto-open via ?wpcu
 		if (D.auto_open) {
 			cuOpenPanel();
-			try {
-				var u = new URL(window.location.href);
-				u.searchParams.delete('wpcu');
-				history.replaceState(null, '', u.toString());
-			} catch (ignore) {}
 		}
 
 	});

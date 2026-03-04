@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use CodeUnloader\Core\RuleRepository;
 
 if ( ! class_exists( 'WP_List_Table' ) ) {

@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Core;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class DequeueEngine {
 
 	public function init(): void {
@@ -31,8 +35,8 @@ class DequeueEngine {
 				continue;
 			}
 
-			// 1. Group enabled check
-			if ( isset( $rule->group_id ) && $rule->group_id !== null && isset( $rule->group_enabled ) && ! $rule->group_enabled ) {
+			// 1. Group enabled check — cast to int because wpdb returns all columns as strings.
+			if ( isset( $rule->group_id ) && null !== $rule->group_id && isset( $rule->group_enabled ) && ! (int) $rule->group_enabled ) {
 				continue;
 			}
 

@@ -3,6 +3,10 @@ declare( strict_types=1 );
 
 namespace CodeUnloader\Admin;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use CodeUnloader\Core\RuleRepository;
 
 if ( ! class_exists( 'WP_List_Table' ) ) {
@@ -25,6 +29,7 @@ class RulesListTable extends \WP_List_Table {
 			'url_pattern' => __( 'URL / Pattern', 'code-unloader' ),
 			'match_type'  => __( 'Match', 'code-unloader' ),
 			'asset_handle'=> __( 'Handle', 'code-unloader' ),
+			'group_name'  => __( 'Group', 'code-unloader' ),
 			'asset_type'  => __( 'Type', 'code-unloader' ),
 			'device_type' => __( 'Device', 'code-unloader' ),
 			'condition'   => __( 'Condition', 'code-unloader' ),
@@ -71,6 +76,13 @@ class RulesListTable extends \WP_List_Table {
 		return esc_html( $item->asset_handle ) . $label;
 	}
 
+	public function column_group_name( $item ): string {
+		if ( empty( $item->group_name ) ) {
+			return '—';
+		}
+		return '<span class="cu-pill cu-pill-teal">' . esc_html( $item->group_name ) . '</span>';
+	}
+
 	public function column_asset_type( $item ): string {
 		$class = 'js' === $item->asset_type ? 'cu-badge-type-js' : 'cu-badge-type-css';
 		return '<span class="cu-badge ' . esc_attr( $class ) . '">' . esc_html( strtoupper( $item->asset_type ) ) . '</span>';
@@ -110,14 +122,19 @@ class RulesListTable extends \WP_List_Table {
 	}
 
 	public function prepare_items(): void {
-		$per_page = 20;
+		// Read per-page from the user's saved screen option (set via the Screen Options panel).
+		// Falls back to 10 if not set. Allowed values: 10, 20, 50.
+		$saved    = (int) get_user_option( 'cu_rules_per_page' );
+		$per_page = in_array( $saved, [ 10, 20, 50 ], true ) ? $saved : 10;
 		$page     = $this->get_pagenum();
 
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- WP_List_Table filtering, no data modification.
 		$filters = [
-			'search'     => isset( $_REQUEST['s'] ) ? sanitize_text_field( $_REQUEST['s'] ) : '',
-			'match_type' => isset( $_REQUEST['match_type'] ) ? sanitize_text_field( $_REQUEST['match_type'] ) : '',
-			'asset_type' => isset( $_REQUEST['asset_type'] ) ? sanitize_text_field( $_REQUEST['asset_type'] ) : '',
+			'search'     => isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : '',
+			'match_type' => isset( $_REQUEST['match_type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['match_type'] ) ) : '',
+			'asset_type' => isset( $_REQUEST['asset_type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['asset_type'] ) ) : '',
 		];
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$result = RuleRepository::get_rules_filtered( array_filter( $filters ), $per_page, $page );
 
