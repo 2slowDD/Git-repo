@@ -1,4 +1,4 @@
-# Code Unloader v1.3.3
+# Code Unloader v1.3.4
 
 Per-page JavaScript & CSS asset management for WordPress. Surgically dequeue scripts and styles on any page using exact, wildcard, or regex URL rules.
 
