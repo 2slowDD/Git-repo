@@ -150,6 +150,16 @@ class RuleRepository {
 		return $deleted;
 	}
 
+	/** Delete every rule in the table. Returns number of rows deleted. */
+	public static function delete_all_rules(): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = (int) $wpdb->query( "DELETE FROM {$wpdb->prefix}cu_rules" );
+		self::$rules_cache = null;
+		self::invalidate_caches();
+		return $deleted;
+	}
+
 	/**
 	 * Return handles stored in rules that are no longer registered in WordPress.
 	 * Only meaningful on the FRONTEND after wp_enqueue_scripts has fired.
@@ -216,8 +226,14 @@ class RuleRepository {
 			$conditions[] = $wpdb->prepare( 'r.device_type = %s', $filters['device_type'] );
 		}
 
-		if ( ! empty( $filters['group_id'] ) ) {
-			$conditions[] = $wpdb->prepare( 'r.group_id = %d', (int) $filters['group_id'] );
+		if ( isset( $filters['group_id'] ) && (int) $filters['group_id'] !== 0 ) {
+			$gid = (int) $filters['group_id'];
+			if ( $gid === -1 ) {
+				// Ungrouped: rules with no group
+				$conditions[] = 'r.group_id IS NULL';
+			} else {
+				$conditions[] = $wpdb->prepare( 'r.group_id = %d', $gid );
+			}
 		}
 
 		// Always hide rules whose group is disabled — they are suspended, not deleted.

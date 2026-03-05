@@ -22,6 +22,9 @@ class RestController {
 		register_rest_route( self::NS, '/rules/bulk-delete', [
 			[ 'methods' => 'POST', 'callback' => [ $this, 'bulk_delete_rules' ], 'permission_callback' => [ $this, 'check_permission' ] ],
 		] );
+		register_rest_route( self::NS, '/rules/delete-all', [
+			[ 'methods' => 'DELETE', 'callback' => [ $this, 'delete_all_rules' ], 'permission_callback' => [ $this, 'check_permission' ] ],
+		] );
 		register_rest_route( self::NS, '/rules/bulk-assign-group', [
 			[ 'methods' => 'POST', 'callback' => [ $this, 'bulk_assign_group' ], 'permission_callback' => [ $this, 'check_permission' ] ],
 		] );
@@ -160,6 +163,11 @@ class RestController {
 	public function bulk_delete_rules( \WP_REST_Request $request ): \WP_REST_Response {
 		$ids     = (array) $request->get_param( 'ids' );
 		$deleted = RuleRepository::delete_rules( $ids );
+		return new \WP_REST_Response( [ 'deleted' => $deleted ] );
+	}
+
+	public function delete_all_rules( \WP_REST_Request $request ): \WP_REST_Response {
+		$deleted = RuleRepository::delete_all_rules();
 		return new \WP_REST_Response( [ 'deleted' => $deleted ] );
 	}
 

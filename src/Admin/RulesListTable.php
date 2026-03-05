@@ -133,6 +133,7 @@ class RulesListTable extends \WP_List_Table {
 			'search'     => isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : '',
 			'match_type' => isset( $_REQUEST['match_type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['match_type'] ) ) : '',
 			'asset_type' => isset( $_REQUEST['asset_type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['asset_type'] ) ) : '',
+			'group_id'   => isset( $_REQUEST['group_id'] ) ? (int) $_REQUEST['group_id'] : 0,
 		];
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 

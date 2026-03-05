@@ -272,7 +272,8 @@ var CU_DATA = <?php echo wp_json_encode( $this->panel_data ); ?>;
 		<div class="cu-warning-body">
 			<span class="cu-warning-icon">⚠️</span>
 			<div class="cu-warning-text">
-				<strong>Use with caution.</strong> Disabling the wrong assets can break your site's layout or functionality. Always test after making changes.
+				<strong>Use with caution.</strong>
+				<strong>Disabling the wrong assets can break your site's layout or functionality. Always test after making changes.</strong>
 			</div>
 			<div class="cu-warning-actions">
 				<button id="cu-warning-dismiss" class="cu-warning-btn-dismiss">Dismiss</button>
@@ -372,6 +373,9 @@ var CU_DATA = <?php echo wp_json_encode( $this->panel_data ); ?>;
 				<select id="cu-group-id" class="cu-input">
 					<option value="">Ungrouped</option>
 				</select>
+				<div id="cu-new-group-wrap" style="display:none;margin-top:6px;">
+					<input type="text" id="cu-new-group-name" class="cu-input" placeholder="New group name…" style="width:100%;">
+				</div>
 			</div>
 		</div>
 

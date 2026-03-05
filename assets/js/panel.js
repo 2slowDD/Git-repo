@@ -224,6 +224,7 @@ var cuClosePanel = function () {
 			container.innerHTML = html;
 			_cu.bindEvents(container);
 			showWarningIfNeeded();
+			_cu.updateStatsBar();
 		},
 
 		assetRow: function (a) {
@@ -431,6 +432,79 @@ var cuClosePanel = function () {
 			// Re-render header row counts
 			var groupEl = newRow.closest('.cu-source-group');
 			if (groupEl) _cu.updateGroupHeader(groupEl);
+			// Item 1: keep stats bar in sync after single-row toggle
+			_cu.updateStatsBar();
+		},
+
+		// Update the disabled-files summary bar (items 1, 2, 5, 6)
+		updateStatsBar: function () {
+			var container = document.getElementById('cu-assets-tab');
+			if (!container) return;
+
+			var disabledAssets = assets.filter(function (a) { return !!ruleMap[a.handle + '|' + a.type]; });
+			var disabledCount  = disabledAssets.length;
+			var disabledSize   = disabledAssets.reduce(function (sum, a) { return sum + (a.size || 0); }, 0);
+
+			var statsBar = document.getElementById('cu-disabled-stats-bar');
+			if (!statsBar) {
+				statsBar = document.createElement('div');
+				statsBar.id = 'cu-disabled-stats-bar';
+				statsBar.className = 'cu-disabled-stats-bar';
+				container.parentNode.insertBefore(statsBar, container);
+			}
+
+			if (disabledCount > 0) {
+				// Item 5: "X files" is a link that scrolls to the first disabled row
+				var filesLink = '<a id="cu-stats-files-link" href="#" class="cu-stats-files-link">'
+					+ disabledCount + ' file' + (disabledCount !== 1 ? 's' : '') + '</a>';
+				// Item 6: "Unloaded from this URL:" instead of "Reduced by:"
+				statsBar.innerHTML = 'Disabled on this URL: ' + filesLink
+					+ ' &nbsp;·&nbsp; Unloaded from this URL: ' + esc(formatSize(disabledSize))
+					+ ' &nbsp;<button class="cu-stats-reenable-all" title="Re-enable all disabled assets on this URL">Re-enable all</button>';
+				statsBar.style.display = '';
+
+				// Bind the files link — scroll to first disabled row
+				var link = document.getElementById('cu-stats-files-link');
+				if (link) {
+					link.addEventListener('click', function (e) {
+						e.preventDefault();
+						var firstDisabled = container.querySelector('.cu-asset-row--disabled');
+						if (firstDisabled) {
+							// Expand the parent group if collapsed
+							var grp = firstDisabled.closest('.cu-source-group');
+							if (grp && grp.classList.contains('cu-source-group--collapsed')) {
+								grp.classList.remove('cu-source-group--collapsed');
+								var key = grp.dataset.groupKey;
+								if (key) sessionStorage.removeItem(key);
+							}
+							firstDisabled.scrollIntoView({ behavior: 'smooth', block: 'center' });
+						}
+					});
+				}
+
+				// Bind re-enable all button
+				var reBtn = statsBar.querySelector('.cu-stats-reenable-all');
+				if (reBtn) {
+					reBtn.addEventListener('click', function () {
+						this.disabled = true;
+						this.textContent = 'Working…';
+						var all = assets.filter(function (a) { return !!ruleMap[a.handle + '|' + a.type]; });
+						var promises = all.map(function (a) {
+							var rule = ruleMap[a.handle + '|' + a.type];
+							if (!rule || !rule.id) return Promise.resolve();
+							return api('DELETE', '/rules/' + rule.id).then(function () {
+								delete ruleMap[a.handle + '|' + a.type];
+							}).catch(function () {});
+						});
+						Promise.all(promises).then(function () {
+							_cu.renderAssets();
+							notify('Re-enabled ' + all.length + ' assets', 'success');
+						});
+					});
+				}
+			} else {
+				statsBar.style.display = 'none';
+			}
 		},
 
 		// Re-render the action buttons count in a group's header row
@@ -511,6 +585,20 @@ var cuClosePanel = function () {
 			_cu.populateGroups();
 			_cu.showDepWarning(handle, dialog);
 
+			// Wire "create new group" sentinel — show/hide inline input
+			var groupSel   = document.getElementById('cu-group-id');
+			var newGrpWrap = document.getElementById('cu-new-group-wrap');
+			if (groupSel && newGrpWrap) {
+				newGrpWrap.style.display = 'none';
+				groupSel.addEventListener('change', function () {
+					newGrpWrap.style.display = (this.value === '__new__') ? '' : 'none';
+					if (this.value === '__new__') {
+						var ni = document.getElementById('cu-new-group-name');
+						if (ni) ni.focus();
+					}
+				});
+			}
+
 			dialog.removeAttribute('hidden');
 			dialog.setAttribute('data-theme', currentTheme);
 		},
@@ -541,6 +629,11 @@ var cuClosePanel = function () {
 				o.textContent = g.name;
 				sel.appendChild(o);
 			});
+			// "＋ Create new group" sentinel option
+			var newOpt = document.createElement('option');
+			newOpt.value = '__new__';
+			newOpt.textContent = '＋ Create new group';
+			sel.appendChild(newOpt);
 		},
 
 		showDepWarning: function (handle, dialog) {
@@ -590,25 +683,43 @@ var cuClosePanel = function () {
 			var labelEl  = document.getElementById('cu-label');
 			var deviceEl = document.getElementById('cu-device-type');
 
-			var body = {
-				url_pattern:      urlPattern,
-				match_type:       matchType,
-				asset_handle:     _cu._dHandle,
-				asset_type:       _cu._dType,
-				source_label:     _cu._dSource || '',
-				device_type:      deviceEl ? deviceEl.value : 'all',
-				condition_type:   condType  || null,
-				condition_value:  null,
-				condition_invert: condInvert,
-				group_id:         (groupEl && groupEl.value) ? parseInt(groupEl.value, 10) : null,
-				label:            (labelEl && labelEl.value.trim()) ? labelEl.value.trim() : null,
-			};
-
 			saveBtn.disabled = true;
 			saveBtn.textContent = 'Saving…';
 			if (err) err.hidden = true;
 
-			api('POST', '/rules', body)
+			// Resolve group_id — if user chose "create new group", create it first
+			var resolveGroupId = Promise.resolve(null);
+			if (groupEl && groupEl.value === '__new__') {
+				var newNameEl = document.getElementById('cu-new-group-name');
+				var newName   = newNameEl ? newNameEl.value.trim() : '';
+				if (newName) {
+					resolveGroupId = api('POST', '/groups', { name: newName, description: '' })
+						.then(function (created) {
+							var gid = parseInt(created.id, 10);
+							groups.push({ id: gid, name: newName, rule_count: 0 });
+							return gid;
+						});
+				}
+			} else if (groupEl && groupEl.value && groupEl.value !== '') {
+				resolveGroupId = Promise.resolve(parseInt(groupEl.value, 10));
+			}
+
+			resolveGroupId.then(function (groupId) {
+				var body = {
+					url_pattern:      urlPattern,
+					match_type:       matchType,
+					asset_handle:     _cu._dHandle,
+					asset_type:       _cu._dType,
+					source_label:     _cu._dSource || '',
+					device_type:      deviceEl ? deviceEl.value : 'all',
+					condition_type:   condType  || null,
+					condition_value:  null,
+					condition_invert: condInvert,
+					group_id:         groupId,
+					label:            (labelEl && labelEl.value.trim()) ? labelEl.value.trim() : null,
+				};
+
+			return api('POST', '/rules', body)
 				.then(function (result) {
 					ruleMap[_cu._dHandle + '|' + _cu._dType] = Object.assign({ id: result.id }, body);
 					var handle = _cu._dHandle;
@@ -616,8 +727,9 @@ var cuClosePanel = function () {
 					_cu.closeDialog(false);
 					_cu.replaceRow(handle, type);
 					notify('Rule saved: ' + handle, 'success');
-				})
-				.catch(function (e) {
+				});
+			})
+			.catch(function (e) {
 					if (err) { err.textContent = e.message; err.hidden = false; }
 				})
 				.finally(function () {
@@ -922,6 +1034,14 @@ var cuClosePanel = function () {
 		if (D.auto_open) {
 			cuOpenPanel();
 		}
+
+		// Item 4: sync rule/group data when user returns to this browser tab,
+		// so changes made in the admin dashboard are reflected without a manual refresh.
+		document.addEventListener('visibilitychange', function () {
+			if (document.visibilityState === 'visible' && window._cu) {
+				window._cu.syncData();
+			}
+		});
 
 	});
 

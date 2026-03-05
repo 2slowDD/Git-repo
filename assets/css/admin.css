@@ -63,6 +63,16 @@
 	flex-wrap: wrap;
 }
 
+.cu-rules-empty-hint {
+	padding: 14px 18px;
+	margin: 0 0 18px;
+	font-size: 13px;
+	color: #555;
+	background: #f6f7f7;
+	border-left: 4px solid #c3c4c7;
+	border-radius: 0 3px 3px 0;
+}
+
 .cu-pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; line-height: 1.6; }
 .cu-pill-grey   { background: #e0e0e0; color: #333; }
 .cu-pill-blue   { background: #b3d4fc; color: #0a3a6e; }

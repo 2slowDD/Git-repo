@@ -103,19 +103,31 @@ class AdminScreen {
 		switch ( $action ) {
 			case 'import':
 				$this->handle_import();
-				break;
+				// PRG pattern: redirect back to settings tab so the admin_notices
+				// action fires outside our <div class="wrap">, preventing the notice
+				// from appearing inside the plugin header.
+				wp_safe_redirect( admin_url( 'options-general.php?page=code-unloader&tab=settings' ) );
+				exit;
 		}
 	}
 
 	private function handle_export(): void {
-		$rules  = RuleRepository::get_rules_filtered( [], 9999, 1 )['rows'];
+		// Use get_all_rules() so disabled-group rules are included in the backup.
+		// Strip the runtime-only group_enabled JOIN column before export.
+		$all_rules = RuleRepository::get_all_rules();
+		$rules     = array_map( function ( $r ) {
+			$arr = (array) $r;
+			unset( $arr['group_enabled'] );
+			return $arr;
+		}, $all_rules );
+
 		$groups = RuleRepository::get_all_groups();
 
 		$payload = [
 			'version'    => CU_VERSION,
 			'exported_at'=> gmdate( 'c' ),
-			'rules'      => $rules,
 			'groups'     => $groups,
+			'rules'      => $rules,
 		];
 
 		$filename = 'code-unloader-backup-' . gmdate( 'Y-m-d' ) . '.json';
@@ -144,31 +156,119 @@ class AdminScreen {
 		$json = $wp_filesystem->get_contents( $tmp_name );
 		$data = json_decode( $json, true );
 
-		if ( ! is_array( $data ) || empty( $data['rules'] ) ) {
-			add_settings_error( 'cu_import', 'invalid', __( 'Invalid import file.', 'code-unloader' ) );
+		if ( ! is_array( $data ) || ( empty( $data['rules'] ) && empty( $data['groups'] ) ) ) {
+			set_transient( 'cu_import_notice_' . get_current_user_id(), [ 'type' => 'error', 'msg' => __( 'Invalid import file.', 'code-unloader' ) ], 60 );
 			return;
 		}
 
+		// ---- Step 1: Import groups, building old_id → new_id map ----
+		// Match existing groups by name to avoid duplicates.
+		$existing_groups = RuleRepository::get_all_groups();
+		$existing_by_name = [];
+		foreach ( $existing_groups as $g ) {
+			$existing_by_name[ $g->name ] = (int) $g->id;
+		}
+
+		$group_id_map      = []; // old export ID => new local ID
+		$groups_imported   = 0;
+		$groups_reused     = 0;
+
+		foreach ( $data['groups'] ?? [] as $g ) {
+			$old_id = (int) ( $g['id'] ?? 0 );
+			$name   = sanitize_text_field( $g['name'] ?? '' );
+			if ( ! $name || ! $old_id ) {
+				continue;
+			}
+
+			if ( isset( $existing_by_name[ $name ] ) ) {
+				// Group already exists — reuse its ID, do not duplicate.
+				$group_id_map[ $old_id ] = $existing_by_name[ $name ];
+				$groups_reused++;
+			} else {
+				$desc   = sanitize_textarea_field( $g['description'] ?? '' );
+				$new_id = RuleRepository::create_group( $name, $desc );
+				if ( is_wp_error( $new_id ) ) {
+					continue;
+				}
+				// Restore enabled state if the exported group was disabled.
+				if ( isset( $g['enabled'] ) && ! (int) $g['enabled'] ) {
+					RuleRepository::update_group( $new_id, [ 'enabled' => 0 ] );
+				}
+				$group_id_map[ $old_id ] = $new_id;
+				$existing_by_name[ $name ] = $new_id; // prevent duplicate within same import
+				$groups_imported++;
+			}
+		}
+
+		// ---- Step 2: Import rules, remapping group_id through the map ----
 		$imported = 0;
-		foreach ( $data['rules'] as $rule ) {
+		foreach ( $data['rules'] ?? [] as $rule ) {
+			// Remap group_id: if the rule belonged to a group in the export,
+			// point it at the correct local group ID. If the group wasn't in
+			// the export (legacy file), leave group_id as-is.
+			if ( ! empty( $rule['group_id'] ) ) {
+				$old_gid = (int) $rule['group_id'];
+				if ( isset( $group_id_map[ $old_gid ] ) ) {
+					$rule['group_id'] = $group_id_map[ $old_gid ];
+				} else {
+					// Group not found in this import — detach rule from the missing group.
+					$rule['group_id'] = null;
+				}
+			}
+
 			$result = RuleRepository::create_rule( $rule );
 			if ( ! is_wp_error( $result ) ) {
 				$imported++;
 			}
 		}
 
-		add_settings_error( 'cu_import', 'success',
+		// ---- Build feedback message ----
+		$parts = [
 			/* translators: %d: number of imported rules */
-			sprintf( __( 'Imported %d rules.', 'code-unloader' ), $imported ),
-			'updated'
+			sprintf( _n( '%d rule', '%d rules', $imported, 'code-unloader' ), $imported ),
+		];
+		if ( $groups_imported > 0 ) {
+			$parts[] = sprintf(
+				/* translators: %d: number of imported groups */
+				_n( '%d group', '%d groups', $groups_imported, 'code-unloader' ),
+				$groups_imported
+			);
+		}
+		if ( $groups_reused > 0 ) {
+			$parts[] = sprintf(
+				/* translators: %d: number of reused groups */
+				_n( '%d existing group matched', '%d existing groups matched', $groups_reused, 'code-unloader' ),
+				$groups_reused
+			);
+		}
+
+		set_transient(
+			'cu_import_notice_' . get_current_user_id(),
+			[
+				'type' => 'updated',
+				'msg'  => sprintf(
+					/* translators: %s: summary of imported items */
+					__( 'Import complete: %s.', 'code-unloader' ),
+					implode( ', ', $parts )
+				),
+			],
+			60
 		);
 	}
 
 	public function show_notices(): void {
-		$screen = get_current_screen();
-		if ( $screen && 'settings_page_code-unloader' === $screen->id ) {
-			settings_errors( 'cu_import' );
+		$key    = 'cu_import_notice_' . get_current_user_id();
+		$notice = get_transient( $key );
+		if ( ! $notice ) {
+			return;
 		}
+		delete_transient( $key );
+		$screen = get_current_screen();
+		if ( ! $screen || 'settings_page_code-unloader' !== $screen->id ) {
+			return;
+		}
+		$type = ( 'updated' === $notice['type'] ) ? 'notice-success' : 'notice-error';
+		echo '<div class="notice ' . esc_attr( $type ) . ' is-dismissible"><p>' . esc_html( $notice['msg'] ) . '</p></div>';
 	}
 
 	public function render_page(): void {
@@ -281,7 +381,17 @@ class AdminScreen {
 		echo '<span> &bull; </span>';
 		$kill = get_option( CU_OPTION_KILL ) ? '<span class="cu-kill-pill">' . esc_html__( 'Kill switch ON', 'code-unloader' ) . '</span>' : '<span class="cu-active-pill">' . esc_html__( 'Rules active', 'code-unloader' ) . '</span>';
 		echo wp_kses_post( $kill );
+		if ( $count > 0 ) {
+			echo ' <button type="button" id="cu-delete-all-rules-btn" class="button button-small cu-btn-danger" style="margin-left:12px;">'
+				. esc_html__( 'Delete All Rules', 'code-unloader' ) . '</button>';
+		}
 		echo '</div>';
+
+		if ( 0 === (int) $count ) {
+			echo '<p class="cu-rules-empty-hint">'
+				. esc_html__( 'Navigate to any page or post on your site, click the Assets panel in the admin bar, and start unloading unnecessary code.', 'code-unloader' )
+				. '</p>';
+		}
 
 		// List table
 		$table = new RulesListTable();
@@ -290,6 +400,24 @@ class AdminScreen {
 		echo '<form method="get">';
 		echo '<input type="hidden" name="page" value="code-unloader">';
 		echo '<input type="hidden" name="tab"  value="rules">';
+
+		// Group filter dropdown
+		$all_groups     = RuleRepository::get_all_groups();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$current_group  = isset( $_GET['group_id'] ) ? (int) $_GET['group_id'] : 0;
+		if ( ! empty( $all_groups ) ) {
+			echo '<div class="alignleft actions" style="margin-bottom:8px;">';
+			echo '<select name="group_id" id="cu-filter-group">';
+			echo '<option value="0">' . esc_html__( 'All Groups', 'code-unloader' ) . '</option>';
+			echo '<option value="-1"' . selected( $current_group, -1, false ) . '>' . esc_html__( 'Ungrouped', 'code-unloader' ) . '</option>';
+			foreach ( $all_groups as $g ) {
+				echo '<option value="' . esc_attr( $g->id ) . '"' . selected( $current_group, (int) $g->id, false ) . '>' . esc_html( $g->name ) . '</option>';
+			}
+			echo '</select> ';
+			echo '<input type="submit" class="button" value="' . esc_attr__( 'Filter by Group', 'code-unloader' ) . '">';
+			echo '</div>';
+		}
+
 		$table->search_box( __( 'Search rules by handle', 'code-unloader' ), 'cu_search' );
 		$table->display();
 		echo '</form>';
@@ -318,7 +446,7 @@ class AdminScreen {
 			echo '<button class="button cu-group-toggle-btn" data-id="' . esc_attr( $group->id ) . '" data-enabled="' . esc_attr( $group->enabled ) . '">'
 				. ( $group->enabled ? esc_html__( 'Disable Group', 'code-unloader' ) : esc_html__( 'Enable Group', 'code-unloader' ) )
 				. '</button> ';
-			echo '<button class="button button-link-delete cu-group-delete-btn" data-id="' . esc_attr( $group->id ) . '">' . esc_html__( 'Delete', 'code-unloader' ) . '</button>';
+			echo '<button class="button button-link-delete cu-group-delete-btn" data-id="' . esc_attr( $group->id ) . '">' . esc_html__( 'Delete Group', 'code-unloader' ) . '</button>';
 			echo '</div></div>';
 		}
 

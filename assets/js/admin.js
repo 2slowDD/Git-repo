@@ -218,7 +218,11 @@
 					if (!row) return;
 					const cell = row.querySelector('td.column-group_name');
 					if (cell) cell.innerHTML = pillHtml;
+					// Item 3: deselect the checkbox after assign
+					cb.checked = false;
 				});
+				// Uncheck "select all" checkboxes too
+				document.querySelectorAll('#cb-select-all-1, #cb-select-all-2').forEach(function(cb) { cb.checked = false; });
 
 				notice('Assigned ' + r.updated + ' rule(s) to group "' + escHtml(groupLabel) + '".');
 			} catch(err) {
@@ -238,6 +242,28 @@
 
 	function escHtml(s) {
 		return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+
+	// Delete ALL rules
+	const deleteAllBtn = document.getElementById('cu-delete-all-rules-btn');
+	if (deleteAllBtn) {
+		deleteAllBtn.addEventListener('click', async function () {
+			if (!confirm('Delete ALL rules? This cannot be undone.\n\nTip: export a backup first in the Settings tab.')) return;
+			this.disabled = true; this.textContent = 'Deleting…';
+			try {
+				const r = await api('DELETE', '/rules/delete-all');
+				notice(`Deleted all ${r.deleted} rule(s).`);
+				// Remove all rows from the table and reset counter
+				document.querySelectorAll('#the-list tr').forEach(row => row.remove());
+				updateRulesCount(-Infinity); // set to 0
+				const countEl = document.getElementById('cu-total-rules-count');
+				if (countEl) countEl.textContent = '0 total rules';
+				this.remove(); // button no longer needed
+			} catch (err) {
+				notice('Error: ' + err.message, 'error');
+				this.disabled = false; this.textContent = 'Delete All Rules';
+			}
+		});
 	}
 
 	// Kill switch

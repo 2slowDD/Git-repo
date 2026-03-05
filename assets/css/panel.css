@@ -823,33 +823,36 @@ a.cu-icon-btn--link {
 }
 .cu-warning-body {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	gap: 12px;
-	padding: 14px 16px;
+	padding: 12px 16px;
 }
 .cu-warning-icon {
 	font-size: 22px;
 	line-height: 1;
 	flex-shrink: 0;
-	margin-top: 1px;
 }
 .cu-warning-text {
 	flex: 1;
 	font-size: 12px;
-	line-height: 1.6;
+	line-height: 1.5;
 	color: var(--cu-text);
 }
 .cu-warning-text strong {
 	color: var(--cu-text);
+	font-size: 12px;
+	font-weight: 700;
+}
+.cu-warning-text strong:first-child {
 	display: block;
-	margin-bottom: 2px;
 	font-size: 13px;
+	margin-bottom: 2px;
 }
 .cu-warning-actions {
 	display: flex;
+	align-items: center;
 	gap: 8px;
-	margin-top: 10px;
-	flex-wrap: wrap;
+	flex-shrink: 0;
 }
 .cu-warning-btn-dismiss,
 .cu-warning-btn-never {
@@ -949,6 +952,58 @@ a.cu-icon-btn--link {
 }
 .cu-source-header:hover .cu-source-size {
 	color: var(--cu-text);
+}
+
+/* Disabled files summary bar — shown above the asset list */
+.cu-disabled-stats-bar {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 7px 16px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .03em;
+	color: var(--cu-badge-red-txt);
+	background: var(--cu-badge-red-bg);
+	border-bottom: 1px solid var(--cu-border);
+}
+.cu-stats-files-link {
+	color: var(--cu-badge-red-txt);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	font-weight: 700;
+}
+.cu-stats-files-link:hover {
+	/* Dark theme: lighten slightly */
+	opacity: .8;
+}
+/* Light theme: badge-red-txt is a dark red — opacity hover washes it out.
+   Override with a fully opaque darker shade so the link stays readable. */
+#cu-panel[data-theme="light"] .cu-stats-files-link:hover,
+#cu-dialog[data-theme="light"] .cu-stats-files-link:hover {
+	opacity: 1;
+	color: #3a0008;
+}
+.cu-stats-reenable-all {
+	margin-left: auto;
+	font-size: 11px;
+	font-weight: 700;
+	padding: 3px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+	border: 1px solid var(--cu-toggle-on, #22aa22);
+	background: var(--cu-badge-green-bg);
+	color: var(--cu-badge-green-txt);
+	transition: opacity .12s;
+	white-space: nowrap;
+}
+.cu-stats-reenable-all:hover:not(:disabled) {
+	opacity: .85;
+}
+.cu-stats-reenable-all:disabled {
+	opacity: .5;
+	cursor: wait;
 }
 
 /* Inline Blocks Tab */
