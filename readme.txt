@@ -4,7 +4,7 @@ Tags: performance, assets, scripts, styles, dequeue
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -76,6 +76,10 @@ Inline blocks are `<script>` and `<style>` tags that are printed directly into t
 6. Admin screen — Settings tab with kill switch
 
 == Changelog ==
+
+= 1.3.4 =
+* Updated plugin icon
+
 
 = 1.3.3 =
 * New: Empty-state guidance message shown below the summary bar when no rules exist yet
