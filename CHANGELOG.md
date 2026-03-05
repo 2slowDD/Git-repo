@@ -5,6 +5,71 @@ All notable changes to Code Unloader will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-03-05
+
+### Added
+
+- Empty-state guidance message shown below the summary bar when no rules exist yet
+
+## [1.3.2] - 2026-03-04
+
+### Fixed
+
+- Disabled files link hover colour on light theme — was nearly invisible due to opacity on dark-red text over light background; now renders as a darker red
+
+## [1.3.1] - 2026-03-03
+
+### Fixed
+
+- Stats bar ("Disabled on this URL") now updates instantly on every toggle — no refresh needed
+- Duplicate import success message resolved via PRG redirect (Post-Redirect-Get pattern)
+- Warning banner icon, Dismiss button and "Don't show again" link are now vertically centered
+
+### Added
+
+- "Re-enable all" button added to the stats bar, re-enables all disabled assets on the page at once
+- Disabled file count in stats bar is now a link that scrolls to the first disabled asset row
+
+### Changed
+
+- "Reduced by:" text updated to "Unloaded from this URL:"
+- Warning banner body text is now fully bold for better readability
+
+## [1.3.0] - 2026-03-02
+
+### Added
+
+- Disable Asset dialog now has a "＋ Create new group" option — creates the group on save and syncs it to the Groups panel
+- Disabled files summary bar on Assets tab: "Disabled on this URL: X files · Reduced by: Y KB"
+- Filter by Group dropdown on the Rules admin tab (including Ungrouped filter)
+- Delete All Rules button in the Rules summary bar with confirmation popup
+
+### Fixed
+
+- Plugin URI updated to https://wpservice.pro/
+- Selected rules are deselected after bulk group assignment
+- Assets panel now syncs rule/group data when user returns to the browser tab (visibilitychange)
+- Duplicate import confirmation message resolved — notices rendered inline in Settings tab only
+- Group filter in Rules admin now supports filtering by specific group or Ungrouped
+
+### Changed
+
+- "Delete" button on group cards renamed to "Delete Group"
+
+## [1.2.5] - 2026-03-01
+
+### Fixed
+
+- Export now includes ALL rules including those in disabled groups (previously get_rules_filtered silently excluded them)
+- Export strips the runtime-only group_enabled JOIN column so the JSON is clean
+- Import now restores groups first, builds an old-ID-to-new-ID map, then remaps each rule's group_id before inserting
+- Import matches existing groups by name to avoid duplicates; rules stay linked to the correct group
+- Import preserves group enabled/disabled state
+
+### Improved
+
+- Import success message now reports rules imported, groups created, and existing groups matched
+
 ## [1.2.4] - 2025-03-04
 
 ### Changed
