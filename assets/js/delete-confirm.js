@@ -5,18 +5,18 @@
 (function () {
 	'use strict';
 
-	var pluginFile = ( window.CU_DELETE_DATA && window.CU_DELETE_DATA.plugin_file ) ? window.CU_DELETE_DATA.plugin_file : '';
-	var modal      = document.getElementById( 'cu-delete-modal' );
-	var confirmBtn = document.getElementById( 'cu-delete-confirm' );
-	var cancelBtn  = document.getElementById( 'cu-delete-cancel' );
+	const pluginFile = ( window.CU_DELETE_DATA && window.CU_DELETE_DATA.plugin_file ) ? window.CU_DELETE_DATA.plugin_file : '';
+	const modal      = document.getElementById( 'cu-delete-modal' );
+	const confirmBtn = document.getElementById( 'cu-delete-confirm' );
+	const cancelBtn  = document.getElementById( 'cu-delete-cancel' );
 
 	if ( ! modal || ! pluginFile ) {
 		return;
 	}
 
-	var links = document.querySelectorAll( 'tr[data-plugin="' + pluginFile + '"] .delete a, tr[data-slug="code-unloader"] .delete a' );
+	const links = document.querySelectorAll( 'tr[data-plugin="' + pluginFile + '"] .delete a, tr[data-slug="code-unloader"] .delete a' );
 	links.forEach( function ( link ) {
-		var realHref = link.href;
+		const realHref = link.href;
 		link.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
 			e.stopPropagation();

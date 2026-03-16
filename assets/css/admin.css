@@ -162,7 +162,6 @@
 
 .cu-rule-label { font-size: 11px; color: #777; }
 
-
 .cu-groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .cu-group-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
 .cu-group-card-disabled { opacity: .6; border-color: #f0a500; background: #fffbf0; }
@@ -175,3 +174,61 @@
 
 .cu-btn-danger { color: #c00 !important; border-color: #c00 !important; }
 .cu-btn-danger:hover { background: #c00 !important; color: #fff !important; }
+
+/* Delete confirmation modal */
+#cu-delete-modal {
+	display: none;
+	position: fixed;
+	inset: 0;
+	z-index: 999999;
+	background: rgba(0,0,0,.7);
+	align-items: center;
+	justify-content: center;
+}
+.cu-delete-dialog {
+	background: #fff;
+	border-radius: 10px;
+	padding: 32px;
+	max-width: 480px;
+	width: 90%;
+	box-shadow: 0 8px 40px rgba(0,0,0,.4);
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.cu-delete-title {
+	margin: 0 0 12px;
+	font-size: 18px;
+	color: #b00020;
+}
+.cu-delete-body {
+	margin: 0 0 12px;
+	color: #333;
+	line-height: 1.6;
+}
+.cu-delete-body--last {
+	margin-bottom: 24px;
+}
+.cu-delete-actions {
+	display: flex;
+	gap: 12px;
+	justify-content: flex-end;
+}
+#cu-delete-cancel {
+	background: #f0f0f0;
+	color: #333;
+	border: 1px solid #ccc;
+	padding: 9px 18px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 14px;
+}
+#cu-delete-confirm {
+	background: #b00020;
+	color: #fff;
+	border: none;
+	padding: 9px 18px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 14px;
+	text-decoration: none;
+	display: inline-block;
+}
