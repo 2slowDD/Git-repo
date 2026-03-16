@@ -5,6 +5,30 @@ All notable changes to Code Unloader will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] - 2026-03-16
+
+### Added
+
+- Speed Analyzer CTA box added to admin sidebar with icon and link
+- Ratings & Reviews and Get Support boxes added to admin sidebar
+- Two-column layout for admin screen (main content + sidebar)
+
+### Fixed
+
+- Inline `<script>` for `CU_DATA` replaced with `wp_add_inline_script()` per WP.org guidelines
+- Plugins-page delete confirmation JS moved to enqueued file (`delete-confirm.js`), removing inline `<script>`
+- Contributors field updated to correct WordPress.org username
+
+## [1.3.5] - 2026-03-16
+
+### Changed
+
+- Frontend panel width reduced from 800px to 750px
+
+### Fixed
+
+- Removed unused jQuery dependency from admin script enqueue
+
 ## [1.3.4] - 2026-03-05
 
 ### Changed
