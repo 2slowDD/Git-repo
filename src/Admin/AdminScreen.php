@@ -72,7 +72,7 @@ class AdminScreen {
 			return;
 		}
 		wp_enqueue_style( 'cu-admin', CU_URL . 'assets/css/admin.css', [], CU_VERSION );
-		wp_enqueue_script( 'cu-admin', CU_URL . 'assets/js/admin.js', [ 'jquery' ], CU_VERSION, true );
+		wp_enqueue_script( 'cu-admin', CU_URL . 'assets/js/admin.js', [], CU_VERSION, true );
 		wp_localize_script( 'cu-admin', 'CU_ADMIN', [
 			'nonce'      => wp_create_nonce( 'wp_rest' ),
 			'api_base'   => esc_url( rest_url( 'code-unloader/v1' ) ),
@@ -326,6 +326,7 @@ class AdminScreen {
 		}
 		echo '</nav>';
 
+		echo '<div class="cu-admin-body">';
 		echo '<div class="cu-tab-content">';
 
 		switch ( $tab ) {
@@ -335,7 +336,42 @@ class AdminScreen {
 			case 'settings': $this->render_settings_tab(); break;
 		}
 
-		echo '</div></div>';
+		echo '</div>'; // .cu-tab-content
+
+		$this->render_sidebar();
+
+		echo '</div></div>'; // .cu-admin-body / .cu-admin-wrap
+	}
+
+	private function render_sidebar(): void {
+		?>
+		<aside class="cu-admin-sidebar">
+			<div class="cu-sidebar-box">
+				<h3 class="cu-sidebar-heading"><?php esc_html_e( 'Ratings &amp; Reviews', 'code-unloader' ); ?></h3>
+				<p class="cu-sidebar-text"><?php esc_html_e( 'If you like Code Unloader please consider leaving a ★★★★★ rating.', 'code-unloader' ); ?></p>
+				<a href="https://wordpress.org/support/plugin/code-unloader/reviews/#new-post" target="_blank" rel="noopener noreferrer" class="button button-primary cu-sidebar-btn">
+					<?php esc_html_e( 'Leave a rating', 'code-unloader' ); ?>
+				</a>
+			</div>
+			<div class="cu-sidebar-box">
+				<h3 class="cu-sidebar-heading"><?php esc_html_e( 'Having Issues?', 'code-unloader' ); ?></h3>
+				<p class="cu-sidebar-text"><?php esc_html_e( "I'm always happy to help out! Support is handled exclusively through WordPress.org.", 'code-unloader' ); ?></p>
+				<a href="https://wordpress.org/support/plugin/code-unloader/" target="_blank" rel="noopener noreferrer" class="button button-primary cu-sidebar-btn">
+					<?php esc_html_e( 'Get Support', 'code-unloader' ); ?>
+				</a>
+			</div>
+			<div class="cu-sidebar-box cu-sidebar-box--cta">
+				<h3 class="cu-sidebar-heading"><?php esc_html_e( 'Measure Your Gains', 'code-unloader' ); ?></h3>
+				<p class="cu-sidebar-text"><?php esc_html_e( 'Check by how much Code Unloader improved your pages with our Speed Analyzer plugin.', 'code-unloader' ); ?></p>
+				<a href="https://wordpress.org/plugins/speed-analyzer/" target="_blank" rel="noopener noreferrer" class="cu-sidebar-sa-link">
+					<img src="<?php echo esc_url( CU_URL . 'assets/img/iconSA-256x256.png' ); ?>" alt="<?php esc_attr_e( 'Speed Analyzer', 'code-unloader' ); ?>" class="cu-sidebar-sa-icon">
+				</a>
+				<a href="https://wordpress.org/plugins/speed-analyzer/" target="_blank" rel="noopener noreferrer" class="button button-primary cu-sidebar-btn">
+					<?php esc_html_e( 'Get Speed Analyzer', 'code-unloader' ); ?>
+				</a>
+			</div>
+		</aside>
+		<?php
 	}
 
 	// -------------------------------------------------------------------------
@@ -539,29 +575,9 @@ class AdminScreen {
 		</div>
 	</div>
 </div>
-<script>
-(function(){
-	var pluginFile = <?php echo wp_json_encode( $plugin_file ); ?>;
-	var modal = document.getElementById('cu-delete-modal');
-	var confirmBtn = document.getElementById('cu-delete-confirm');
-	var cancelBtn  = document.getElementById('cu-delete-cancel');
-	if (!modal) return;
-	var links = document.querySelectorAll('tr[data-plugin="' + pluginFile + '"] .delete a, tr[data-slug="code-unloader"] .delete a');
-	links.forEach(function(link) {
-		var realHref = link.href;
-		link.addEventListener('click', function(e) {
-			e.preventDefault();
-			e.stopPropagation();
-			modal.style.display = 'flex';
-			confirmBtn.href = realHref;
-		});
-	});
-	cancelBtn.addEventListener('click', function() { modal.style.display = 'none'; });
-	modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
-	document.addEventListener('keydown', function(e) { if (e.key === 'Escape') modal.style.display = 'none'; });
-})();
-</script>
 		<?php
+		wp_enqueue_script( 'cu-delete-confirm', CU_URL . 'assets/js/delete-confirm.js', [], CU_VERSION, true );
+		wp_localize_script( 'cu-delete-confirm', 'CU_DELETE_DATA', [ 'plugin_file' => $plugin_file ] );
 	}
 
 	public function maybe_hook_delete_confirmation(): void {

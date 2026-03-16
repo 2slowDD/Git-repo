@@ -1,10 +1,10 @@
 === Code Unloader ===
-Contributors: dalibordruzinec
+Contributors: dalibord
 Tags: performance, assets, scripts, styles, dequeue
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.3.4
+Stable tag: 1.3.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -77,8 +77,21 @@ Inline blocks are `<script>` and `<style>` tags that are printed directly into t
 
 == Changelog ==
 
+= 1.3.6 =
+* New: Speed Analyzer CTA box added to admin sidebar with icon and link
+
+
+= 1.3.5 =
+* Changed: Frontend panel width reduced from 800px to 750px
+* Fixed: Removed unused jQuery dependency from admin script enqueue
+
+
 = 1.3.4 =
 * Updated plugin icon
+* Fixed: Inline <script> for CU_DATA replaced with wp_add_inline_script() per WP.org guidelines
+* Fixed: Plugins-page delete confirmation JS moved to enqueued file (delete-confirm.js), removing inline <script>
+* Fixed: Contributors field updated to correct WordPress.org username (dalibord)
+* New: Ratings & Reviews / Get Support sidebar added to admin screen
 
 
 = 1.3.3 =

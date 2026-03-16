@@ -234,11 +234,15 @@ class FrontendPanel {
 		// since the head scan finishes after enqueue_panel_assets runs.
 		$this->panel_data['inline_blocks'] = $this->detected_inline_blocks;
 
+		// Pass panel data to panel.js via wp_add_inline_script (avoids raw <script> tag).
+		wp_add_inline_script(
+			'cu-panel',
+			'var CU_DATA = ' . wp_json_encode( $this->panel_data ) . ';',
+			'before'
+		);
+
 		$is_kill = (bool) get_option( CU_OPTION_KILL );
 		?>
-<script>
-var CU_DATA = <?php echo wp_json_encode( $this->panel_data ); ?>;
-</script>
 <!-- Code Unloader Panel v<?php echo esc_html( CU_VERSION ); ?> | panel.js v9 | panel.css v9 -->
 <div id="cu-panel" inert aria-label="Code Unloader">
 	<div class="cu-panel-header">

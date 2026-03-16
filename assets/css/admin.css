@@ -1,6 +1,80 @@
 /* Code Unloader — Admin Screen Styles */
 
-.cu-admin-wrap { max-width: 1200px; }
+.cu-admin-wrap { max-width: 1340px; }
+
+/* Two-column layout: main content + sidebar */
+.cu-admin-body {
+	display: flex;
+	align-items: flex-start;
+	gap: 24px;
+}
+.cu-tab-content {
+	flex: 1;
+	min-width: 0;
+	padding-top: 16px;
+}
+
+/* Sidebar */
+.cu-admin-sidebar {
+	flex-shrink: 0;
+	width: 220px;
+	padding-top: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+.cu-sidebar-box {
+	background: #fffef5;
+	border: 1px solid #e2e1b8;
+	border-radius: 8px;
+	padding: 18px 16px;
+}
+.cu-sidebar-heading {
+	margin: 0 0 8px;
+	font-size: 14px;
+	font-weight: 600;
+	color: #1d2327;
+}
+.cu-sidebar-text {
+	margin: 0 0 14px;
+	font-size: 13px;
+	color: #444;
+	line-height: 1.5;
+}
+.cu-sidebar-btn {
+	display: block;
+	text-align: center;
+	background: #2271b1 !important;
+	border-color: #2271b1 !important;
+	color: #fff !important;
+	text-decoration: none;
+}
+.cu-sidebar-btn:hover {
+	background: #135e96 !important;
+	border-color: #135e96 !important;
+	color: #fff !important;
+}
+.cu-sidebar-box--cta .cu-sidebar-btn {
+	display: inline-block;
+	width: auto;
+}
+.cu-sidebar-box--cta {
+	border-color: #c3d9b8;
+	background: #f0f7eb;
+	text-align: center;
+}
+.cu-sidebar-sa-link {
+	display: block;
+	text-align: center;
+	margin: 10px 0 14px;
+}
+.cu-sidebar-sa-icon {
+	width: 100px;
+	height: 100px;
+	border-radius: 16px;
+	display: inline-block;
+	background: transparent;
+}
 
 /* Plugin header */
 .cu-header {
@@ -87,7 +161,7 @@
 .cu-badge-type-css { background: #cfe2ff; color: #084298; }
 
 .cu-rule-label { font-size: 11px; color: #777; }
-.cu-tab-content { padding-top: 16px; }
+
 
 .cu-groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .cu-group-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
