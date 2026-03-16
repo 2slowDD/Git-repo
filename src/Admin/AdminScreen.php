@@ -347,7 +347,7 @@ class AdminScreen {
 		?>
 		<aside class="cu-admin-sidebar">
 			<div class="cu-sidebar-box">
-				<h3 class="cu-sidebar-heading"><?php esc_html_e( 'Ratings & Reviews', 'code-unloader' ); ?></h3>
+				<h3 class="cu-sidebar-heading"><?php esc_html_e( 'Ratings &amp; Reviews', 'code-unloader' ); ?></h3>
 				<p class="cu-sidebar-text"><?php esc_html_e( 'If you like Code Unloader please consider leaving a ★★★★★ rating.', 'code-unloader' ); ?></p>
 				<a href="https://wordpress.org/support/plugin/code-unloader/reviews/#new-post" target="_blank" rel="noopener noreferrer" class="button button-primary cu-sidebar-btn">
 					<?php esc_html_e( 'Leave a rating', 'code-unloader' ); ?>
@@ -564,14 +564,14 @@ class AdminScreen {
 	public function inject_delete_confirmation(): void {
 		$plugin_file = plugin_basename( CU_FILE );
 		?>
-<div id="cu-delete-modal">
-	<div class="cu-delete-dialog">
-		<h2 class="cu-delete-title">⚠️ Delete Code Unloader?</h2>
-		<p class="cu-delete-body">Deleting this plugin will <strong>permanently remove all dequeue rules, groups, and audit logs</strong>.</p>
-		<p class="cu-delete-body cu-delete-body--last">All assets that were being unloaded will <strong>immediately start loading again</strong> on every page — your site will be returned to its state before Code Unloader was installed.</p>
-		<div class="cu-delete-actions">
-			<button id="cu-delete-cancel">Cancel</button>
-			<a id="cu-delete-confirm" href="#">Delete Plugin &amp; All Data</a>
+<div id="cu-delete-modal" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
+	<div style="background:#fff;border-radius:10px;padding:32px;max-width:480px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.4);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+		<h2 style="margin:0 0 12px;font-size:18px;color:#b00020;">⚠️ Delete Code Unloader?</h2>
+		<p style="margin:0 0 12px;color:#333;line-height:1.6;">Deleting this plugin will <strong>permanently remove all dequeue rules, groups, and audit logs</strong>.</p>
+		<p style="margin:0 0 24px;color:#333;line-height:1.6;">All assets that were being unloaded will <strong>immediately start loading again</strong> on every page — your site will be returned to its state before Code Unloader was installed.</p>
+		<div style="display:flex;gap:12px;justify-content:flex-end;">
+			<button id="cu-delete-cancel" style="background:#f0f0f0;color:#333;border:1px solid #ccc;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:14px;">Cancel</button>
+			<a id="cu-delete-confirm" href="#" style="background:#b00020;color:#fff;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:14px;text-decoration:none;display:inline-block;">Delete Plugin &amp; All Data</a>
 		</div>
 	</div>
 </div>
