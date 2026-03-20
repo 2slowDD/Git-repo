@@ -36,7 +36,7 @@ Per-page JavaScript & CSS asset management for WordPress. Surgically dequeue scr
 
 ## Compatibility
 
-WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi.
+**Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi, WP Bakery, basically everything WP-related.
 
 ## License
 
