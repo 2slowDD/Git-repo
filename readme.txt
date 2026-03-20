@@ -34,7 +34,7 @@ Code Unloader gives site administrators surgical control over which JavaScript a
 * JSON import/export
 * Zero performance overhead on pages with no matching rules
 
-**Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi.
+**Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi, WP Bakery, basically everything WP-related.
 
 **Requirements:** PHP 8.0 or higher is required. The plugin uses modern PHP features (union types, match expressions, named functions) that are not available in PHP 7.x.
 
