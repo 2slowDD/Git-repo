@@ -24,6 +24,7 @@ Code Unloader gives site administrators surgical control over which JavaScript a
 * Access panel on any page via `?wpcu` URL parameter
 * Global admin screen listing all rules across the site
 * One-click kill switch to instantly restore all assets sitewide
+* Bypass all rules for a single request via `?nowpcu` URL parameter
 * Conditional rules (logged-in users, WooCommerce pages, shortcodes, post types)
 * Device-type rules (desktop-only or mobile-only)
 * Inline script/style blocking for assets without registered handles
@@ -59,6 +60,9 @@ The kill switch is a one-click emergency recovery button in **Settings > Code Un
 
 = What does the ?wpcu parameter do? =
 Appending `?wpcu` to any frontend URL will automatically open the asset panel for logged-in administrators, even on pages where the Admin Toolbar is hidden. The parameter stays in the URL while the panel is open and is removed when you close it.
+
+= What does the ?nowpcu parameter do? =
+Appending `?nowpcu` to any frontend URL disables all Code Unloader rules for that single request — the page loads exactly as if the plugin were not active. This follows the same convention as `?nowprocket` (WP Rocket) and `?ao_noptimize=1` (Autoptimize). Useful for testing, debugging, or performance scanning tools that need to measure the raw unoptimized asset baseline.
 
 = Does it support regex? =
 Yes. When creating a rule, choose **Regular Expression** as the match type. Patterns are validated before saving, and a regex warning is shown to help you keep patterns specific.
@@ -166,9 +170,6 @@ Inline blocks are `<script>` and `<style>` tags that are printed directly into t
 * Fixed: Disabled-group rules now correctly excluded from panel rule_map at PHP render time (FrontendPanel)
 * Fixed: Same (int) cast bug found and fixed in InlineBlocker group_enabled check
 * Fixed: REST get_rules endpoint page_url branch now skips disabled-group rules
-
-
-= 1.2.1 =
 * Fixed: Disabling a group now suspends its rules — they disappear from the Rules tab, assets load normally on frontend and in panel
 * Fixed: "N total rules" count and Rules table now exclude suspended (disabled-group) rules
 * Fixed: COUNT query in get_rules_filtered now JOINs groups table so the group-enabled filter applies correctly to pagination totals
