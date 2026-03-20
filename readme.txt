@@ -4,7 +4,7 @@ Tags: performance, assets, scripts, styles, dequeue
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.3.6
+Stable tag: 1.3.9
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -76,6 +76,16 @@ Inline blocks are `<script>` and `<style>` tags that are printed directly into t
 6. Admin screen — Settings tab with kill switch
 
 == Changelog ==
+
+= 1.3.9 =
+* Changed: Bypass mechanism replaced — appending ?nowpcu to any URL now disables all Code Unloader rules for that request, following the same convention as ?nowprocket (WP Rocket) and ?ao_noptimize=1 (Autoptimize)
+
+= 1.3.8 =
+* Removed: CU_SCANNER_ACTIVE constant bypass (superseded by ?nowpcu)
+
+= 1.3.7 =
+* Fixed: All plugin-specific PHP constants, option names, transient keys, cache keys, and JS globals renamed from the short "cu_" prefix (2 chars) to "cdunloader_" to comply with WordPress.org prefix length requirements (minimum 4 characters)
+* Fixed: Third-party global variable $nginx_helper in CachePurger now suppressed with phpcs inline comment
 
 = 1.3.6 =
 * New: Speed Analyzer CTA box added to admin sidebar with icon and link

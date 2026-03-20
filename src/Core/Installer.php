@@ -11,7 +11,7 @@ class Installer {
 
 	public static function activate(): void {
 		self::create_tables();
-		update_option( CU_OPTION_DBVER, CU_DB_VERSION );
+		update_option( CDUNLOADER_OPTION_DBVER, CDUNLOADER_DB_VERSION );
 	}
 
 	public static function deactivate(): void {
@@ -27,16 +27,16 @@ class Installer {
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cu_rules" );
 		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cu_groups" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
-		delete_option( CU_OPTION_KILL );
-		delete_option( CU_OPTION_DBVER );
+		delete_option( CDUNLOADER_OPTION_KILL );
+		delete_option( CDUNLOADER_OPTION_DBVER );
 		delete_transient( 'code_unloader_source_map' );
 	}
 
 	public static function maybe_upgrade(): void {
-		$installed = (string) get_option( CU_OPTION_DBVER, '0' );
-		if ( version_compare( $installed, CU_DB_VERSION, '<' ) ) {
+		$installed = (string) get_option( CDUNLOADER_OPTION_DBVER, '0' );
+		if ( version_compare( $installed, CDUNLOADER_DB_VERSION, '<' ) ) {
 			self::create_tables();
-			update_option( CU_OPTION_DBVER, CU_DB_VERSION );
+			update_option( CDUNLOADER_OPTION_DBVER, CDUNLOADER_DB_VERSION );
 		}
 	}
 

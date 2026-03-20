@@ -5,7 +5,7 @@
 (function () {
 	'use strict';
 
-	var pluginFile = ( window.CU_DELETE_DATA && window.CU_DELETE_DATA.plugin_file ) ? window.CU_DELETE_DATA.plugin_file : '';
+	var pluginFile = ( window.CDUNLOADER_DELETE_DATA && window.CDUNLOADER_DELETE_DATA.plugin_file ) ? window.CDUNLOADER_DELETE_DATA.plugin_file : '';
 	var modal      = document.getElementById( 'cu-delete-modal' );
 	var confirmBtn = document.getElementById( 'cu-delete-confirm' );
 	var cancelBtn  = document.getElementById( 'cu-delete-cancel' );

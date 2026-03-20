@@ -146,7 +146,7 @@ class CachePurger {
 
 		// Nginx Helper
 		if ( class_exists( '\Nginx_Helper' ) ) {
-			global $nginx_helper;
+			global $nginx_helper; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Third-party plugin global variable.
 			if ( $nginx_helper && method_exists( $nginx_helper, 'purge_entire_cache' ) ) {
 				$nginx_helper->purge_entire_cache();
 			}

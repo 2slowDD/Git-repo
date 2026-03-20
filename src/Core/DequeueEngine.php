@@ -15,8 +15,15 @@ class DequeueEngine {
 	}
 
 	public function process_rules(): void {
+		// Bypass via ?nowpcu — disables all rules for this request.
+		// Follows the same convention as ?nowprocket (WP Rocket) and ?ao_noptimize=1 (Autoptimize).
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only bypass parameter, no data modification.
+		if ( isset( $_GET['nowpcu'] ) ) {
+			return;
+		}
+
 		// Kill switch check — one option read, no DB query
-		if ( get_option( CU_OPTION_KILL ) ) {
+		if ( get_option( CDUNLOADER_OPTION_KILL ) ) {
 			return;
 		}
 

@@ -96,8 +96,8 @@ class FrontendPanel {
 	}
 
 	public function enqueue_panel_assets(): void {
-		wp_enqueue_style( 'cu-panel', CU_URL . 'assets/css/panel.css', [], CU_VERSION );
-		wp_enqueue_script( 'cu-panel', CU_URL . 'assets/js/panel.js', [], CU_VERSION, true );
+		wp_enqueue_style( 'cu-panel', CDUNLOADER_URL . 'assets/css/panel.css', [], CDUNLOADER_VERSION );
+		wp_enqueue_script( 'cu-panel', CDUNLOADER_URL . 'assets/js/panel.js', [], CDUNLOADER_VERSION, true );
 
 		global $wp_scripts, $wp_styles;
 
@@ -108,7 +108,7 @@ class FrontendPanel {
 				'api_base'      => rest_url( 'code-unloader/v1' ),
 				'admin_url'     => admin_url( 'admin.php?page=code-unloader' ),
 				'page_url'      => '',
-				'kill_switch'   => (bool) get_option( CU_OPTION_KILL ),
+				'kill_switch'   => (bool) get_option( CDUNLOADER_OPTION_KILL ),
 				'auto_open'     => 1,
 				'assets'        => [],
 				'rule_map'      => [],
@@ -214,7 +214,7 @@ class FrontendPanel {
 			'api_base'      => rest_url( 'code-unloader/v1' ),
 			'admin_url'     => admin_url( 'admin.php?page=code-unloader' ),
 			'page_url'      => $url,
-			'kill_switch'   => (bool) get_option( CU_OPTION_KILL ),
+			'kill_switch'   => (bool) get_option( CDUNLOADER_OPTION_KILL ),
 			'auto_open'     => 1, // panel only loads on ?wpcu pages — always open
 			'assets'        => $assets,
 			'rule_map'      => $rule_map,
@@ -237,18 +237,18 @@ class FrontendPanel {
 		// Pass panel data to panel.js via wp_add_inline_script (avoids raw <script> tag).
 		wp_add_inline_script(
 			'cu-panel',
-			'var CU_DATA = ' . wp_json_encode( $this->panel_data ) . ';',
+			'var CDUNLOADER_DATA = ' . wp_json_encode( $this->panel_data ) . ';',
 			'before'
 		);
 
-		$is_kill = (bool) get_option( CU_OPTION_KILL );
+		$is_kill = (bool) get_option( CDUNLOADER_OPTION_KILL );
 		?>
-<!-- Code Unloader Panel v<?php echo esc_html( CU_VERSION ); ?> | panel.js v9 | panel.css v9 -->
+<!-- Code Unloader Panel v<?php echo esc_html( CDUNLOADER_VERSION ); ?> | panel.js v9 | panel.css v9 -->
 <div id="cu-panel" inert aria-label="Code Unloader">
 	<div class="cu-panel-header">
 		<div class="cu-panel-header-left">
 			<div class="cu-branding">
-				<div class="cu-branding-title">⚡ Code Unloader <span class="cu-version">v<?php echo esc_html( CU_VERSION ); ?></span></div>
+				<div class="cu-branding-title">⚡ Code Unloader <span class="cu-version">v<?php echo esc_html( CDUNLOADER_VERSION ); ?></span></div>
 				<div class="cu-branding-sub">Developed by <a href="https://wpservice.pro" target="_blank" rel="noopener noreferrer" class="cu-branding-link">Dalibor Druzinec / WPservice.pro</a></div>
 			</div>
 		</div>
@@ -428,7 +428,7 @@ class FrontendPanel {
 	}
 
 	public function add_toolbar_button( \WP_Admin_Bar $wp_admin_bar ): void {
-		$is_kill    = (bool) get_option( CU_OPTION_KILL );
+		$is_kill    = (bool) get_option( CDUNLOADER_OPTION_KILL );
 		$panel_live = isset( $_GET['wpcu'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Panel activation flag.
 
 		if ( $panel_live ) {

@@ -23,12 +23,12 @@ $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cu_groups" );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
 
 // Remove all plugin options
-delete_option( 'cu_kill_switch' );
-delete_option( 'cu_db_version' );
-delete_option( 'cu_uninstall_delete_data' );
+delete_option( 'cdunloader_kill_switch' );
+delete_option( 'cdunloader_db_version' );
+delete_option( 'cdunloader_uninstall_delete_data' );
 
 // Remove transients
 delete_transient( 'code_unloader_source_map' );
 
 // Remove any user meta (dismiss preferences stored per-user)
-delete_metadata( 'user', 0, 'cu_dismissed_warning', '', true );
+delete_metadata( 'user', 0, 'cdunloader_dismissed_warning', '', true );

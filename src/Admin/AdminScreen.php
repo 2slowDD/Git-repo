@@ -22,7 +22,7 @@ class AdminScreen {
 		add_action( 'current_screen',  [ $this, 'maybe_hook_delete_confirmation' ] );
 
 		// Allow WordPress to save our per_page screen option value.
-		add_filter( 'set_screen_option_cu_rules_per_page', [ $this, 'save_screen_option' ], 10, 3 );
+		add_filter( 'set_screen_option_cdunloader_rules_per_page', [ $this, 'save_screen_option' ], 10, 3 );
 
 		// Upgrade check
 		Installer::maybe_upgrade();
@@ -62,7 +62,7 @@ class AdminScreen {
 			[
 				'label'   => __( 'Rules per page', 'code-unloader' ),
 				'default' => 10,
-				'option'  => 'cu_rules_per_page',
+				'option'  => 'cdunloader_rules_per_page',
 			]
 		);
 	}
@@ -71,21 +71,21 @@ class AdminScreen {
 		if ( 'settings_page_code-unloader' !== $hook ) {
 			return;
 		}
-		wp_enqueue_style( 'cu-admin', CU_URL . 'assets/css/admin.css', [], CU_VERSION );
-		wp_enqueue_script( 'cu-admin', CU_URL . 'assets/js/admin.js', [], CU_VERSION, true );
-		wp_localize_script( 'cu-admin', 'CU_ADMIN', [
+		wp_enqueue_style( 'cu-admin', CDUNLOADER_URL . 'assets/css/admin.css', [], CDUNLOADER_VERSION );
+		wp_enqueue_script( 'cu-admin', CDUNLOADER_URL . 'assets/js/admin.js', [], CDUNLOADER_VERSION, true );
+		wp_localize_script( 'cu-admin', 'CDUNLOADER_ADMIN', [
 			'nonce'      => wp_create_nonce( 'wp_rest' ),
 			'api_base'   => esc_url( rest_url( 'code-unloader/v1' ) ),
-			'kill_switch'=> (bool) get_option( CU_OPTION_KILL ),
+			'kill_switch'=> (bool) get_option( CDUNLOADER_OPTION_KILL ),
 			'groups'     => RuleRepository::get_all_groups(),
 		] );
 	}
 
 	public function handle_actions(): void {
 		// Handle GET actions (export)
-		if ( isset( $_GET['cu_action'] ) && current_user_can( 'manage_options' ) ) {
-			$action = sanitize_text_field( wp_unslash( $_GET['cu_action'] ) );
-			check_admin_referer( 'cu_admin_action' );
+		if ( isset( $_GET['cdunloader_action'] ) && current_user_can( 'manage_options' ) ) {
+			$action = sanitize_text_field( wp_unslash( $_GET['cdunloader_action'] ) );
+			check_admin_referer( 'cdunloader_admin_action' );
 
 			if ( 'export' === $action ) {
 				$this->handle_export();
@@ -94,11 +94,11 @@ class AdminScreen {
 		}
 
 		// Handle POST actions (import)
-		if ( ! isset( $_POST['cu_action'] ) || ! current_user_can( 'manage_options' ) ) {
+		if ( ! isset( $_POST['cdunloader_action'] ) || ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$action = sanitize_text_field( wp_unslash( $_POST['cu_action'] ) );
-		check_admin_referer( 'cu_admin_action' );
+		$action = sanitize_text_field( wp_unslash( $_POST['cdunloader_action'] ) );
+		check_admin_referer( 'cdunloader_admin_action' );
 
 		switch ( $action ) {
 			case 'import':
@@ -124,7 +124,7 @@ class AdminScreen {
 		$groups = RuleRepository::get_all_groups();
 
 		$payload = [
-			'version'    => CU_VERSION,
+			'version'    => CDUNLOADER_VERSION,
 			'exported_at'=> gmdate( 'c' ),
 			'groups'     => $groups,
 			'rules'      => $rules,
@@ -140,13 +140,13 @@ class AdminScreen {
 	}
 
 	private function handle_import(): void {
-		if ( ! check_admin_referer( 'cu_admin_action' ) ) {
+		if ( ! check_admin_referer( 'cdunloader_admin_action' ) ) {
 			return;
 		}
-		if ( empty( $_FILES['cu_import_file']['tmp_name'] ) ) {
+		if ( empty( $_FILES['cdunloader_import_file']['tmp_name'] ) ) {
 			return;
 		}
-		$tmp_name = sanitize_text_field( wp_unslash( $_FILES['cu_import_file']['tmp_name'] ) );
+		$tmp_name = sanitize_text_field( wp_unslash( $_FILES['cdunloader_import_file']['tmp_name'] ) );
 
 		global $wp_filesystem;
 		if ( ! function_exists( 'WP_Filesystem' ) ) {
@@ -157,7 +157,7 @@ class AdminScreen {
 		$data = json_decode( $json, true );
 
 		if ( ! is_array( $data ) || ( empty( $data['rules'] ) && empty( $data['groups'] ) ) ) {
-			set_transient( 'cu_import_notice_' . get_current_user_id(), [ 'type' => 'error', 'msg' => __( 'Invalid import file.', 'code-unloader' ) ], 60 );
+			set_transient( 'cdunloader_import_notice_' . get_current_user_id(), [ 'type' => 'error', 'msg' => __( 'Invalid import file.', 'code-unloader' ) ], 60 );
 			return;
 		}
 
@@ -243,7 +243,7 @@ class AdminScreen {
 		}
 
 		set_transient(
-			'cu_import_notice_' . get_current_user_id(),
+			'cdunloader_import_notice_' . get_current_user_id(),
 			[
 				'type' => 'updated',
 				'msg'  => sprintf(
@@ -257,7 +257,7 @@ class AdminScreen {
 	}
 
 	public function show_notices(): void {
-		$key    = 'cu_import_notice_' . get_current_user_id();
+		$key    = 'cdunloader_import_notice_' . get_current_user_id();
 		$notice = get_transient( $key );
 		if ( ! $notice ) {
 			return;
@@ -287,9 +287,9 @@ class AdminScreen {
 
 		// Plugin header with icon, title, and subtitle
 		echo '<div class="cu-header">';
-		echo '<img src="' . esc_url( CU_URL . 'assets/img/CU_icon_200x200.png' ) . '" alt="Code Unloader" class="cu-header-icon">';
+		echo '<img src="' . esc_url( CDUNLOADER_URL . 'assets/img/CU_icon_200x200.png' ) . '" alt="Code Unloader" class="cu-header-icon">';
 		echo '<div class="cu-header-text">';
-		echo '<h1 class="cu-header-title">' . esc_html__( 'Code Unloader', 'code-unloader' ) . ' <span class="cu-header-version">v' . esc_html( CU_VERSION ) . '</span></h1>';
+		echo '<h1 class="cu-header-title">' . esc_html__( 'Code Unloader', 'code-unloader' ) . ' <span class="cu-header-version">v' . esc_html( CDUNLOADER_VERSION ) . '</span></h1>';
 		echo '<p class="cu-header-subtitle">' . wp_kses(
 			sprintf(
 				/* translators: %s: link to WPservice.pro */
@@ -308,7 +308,7 @@ class AdminScreen {
 		echo '</div>';
 
 		// Kill switch alert
-		if ( get_option( CU_OPTION_KILL ) ) {
+		if ( get_option( CDUNLOADER_OPTION_KILL ) ) {
 			echo '<div class="notice notice-error"><p><strong>' . esc_html__( '⚠ Kill switch is ACTIVE — all assets are loading normally. No rules are being applied.', 'code-unloader' ) . '</strong></p></div>';
 		}
 
@@ -364,7 +364,7 @@ class AdminScreen {
 				<h3 class="cu-sidebar-heading"><?php esc_html_e( 'Measure Your Gains', 'code-unloader' ); ?></h3>
 				<p class="cu-sidebar-text"><?php esc_html_e( 'Check by how much Code Unloader improved your pages with our Speed Analyzer plugin.', 'code-unloader' ); ?></p>
 				<a href="https://wordpress.org/plugins/speed-analyzer/" target="_blank" rel="noopener noreferrer" class="cu-sidebar-sa-link">
-					<img src="<?php echo esc_url( CU_URL . 'assets/img/iconSA-256x256.png' ); ?>" alt="<?php esc_attr_e( 'Speed Analyzer', 'code-unloader' ); ?>" class="cu-sidebar-sa-icon">
+					<img src="<?php echo esc_url( CDUNLOADER_URL . 'assets/img/iconSA-256x256.png' ); ?>" alt="<?php esc_attr_e( 'Speed Analyzer', 'code-unloader' ); ?>" class="cu-sidebar-sa-icon">
 				</a>
 				<a href="https://wordpress.org/plugins/speed-analyzer/" target="_blank" rel="noopener noreferrer" class="button button-primary cu-sidebar-btn">
 					<?php esc_html_e( 'Get Speed Analyzer', 'code-unloader' ); ?>
@@ -380,14 +380,14 @@ class AdminScreen {
 	private function render_rules_tab(): void {
 		// Summary bar — count only active rules (disabled-group rules are suspended, not shown).
 		global $wpdb;
-		$count = wp_cache_get( 'cu_rules_count' );
+		$count = wp_cache_get( 'cdunloader_rules_count' );
 		if ( false === $count ) {
 			$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 				"SELECT COUNT(*) FROM {$wpdb->prefix}cu_rules r
 				 LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id
 				 WHERE (g.enabled = 1 OR r.group_id IS NULL)"
 			);
-			wp_cache_set( 'cu_rules_count', $count );
+			wp_cache_set( 'cdunloader_rules_count', $count );
 		}
 
 		// Stale rule detection — check after wp_enqueue_scripts has fired
@@ -415,7 +415,7 @@ class AdminScreen {
 		/* translators: %d: number of rules */
 		echo '<span id="cu-total-rules-count">' . sprintf( esc_html__( '%d total rules', 'code-unloader' ), (int) $count ) . '</span>';
 		echo '<span> &bull; </span>';
-		$kill = get_option( CU_OPTION_KILL ) ? '<span class="cu-kill-pill">' . esc_html__( 'Kill switch ON', 'code-unloader' ) . '</span>' : '<span class="cu-active-pill">' . esc_html__( 'Rules active', 'code-unloader' ) . '</span>';
+		$kill = get_option( CDUNLOADER_OPTION_KILL ) ? '<span class="cu-kill-pill">' . esc_html__( 'Kill switch ON', 'code-unloader' ) . '</span>' : '<span class="cu-active-pill">' . esc_html__( 'Rules active', 'code-unloader' ) . '</span>';
 		echo wp_kses_post( $kill );
 		if ( $count > 0 ) {
 			echo ' <button type="button" id="cu-delete-all-rules-btn" class="button button-small cu-btn-danger" style="margin-left:12px;">'
@@ -454,7 +454,7 @@ class AdminScreen {
 			echo '</div>';
 		}
 
-		$table->search_box( __( 'Search rules by handle', 'code-unloader' ), 'cu_search' );
+		$table->search_box( __( 'Search rules by handle', 'code-unloader' ), 'cdunloader_search' );
 		$table->display();
 		echo '</form>';
 	}
@@ -519,7 +519,7 @@ class AdminScreen {
 	// Settings Tab
 	// -------------------------------------------------------------------------
 	private function render_settings_tab(): void {
-		$kill = (bool) get_option( CU_OPTION_KILL );
+		$kill = (bool) get_option( CDUNLOADER_OPTION_KILL );
 
 		echo '<table class="form-table"><tbody>';
 
@@ -537,8 +537,8 @@ class AdminScreen {
 		// Export
 		echo '<tr><th scope="row">' . esc_html__( 'Export Rules', 'code-unloader' ) . '</th><td>';
 		$export_url = wp_nonce_url(
-			add_query_arg( [ 'cu_action' => 'export' ], admin_url( 'options-general.php?page=code-unloader&tab=settings' ) ),
-			'cu_admin_action'
+			add_query_arg( [ 'cdunloader_action' => 'export' ], admin_url( 'options-general.php?page=code-unloader&tab=settings' ) ),
+			'cdunloader_admin_action'
 		);
 		echo '<a href="' . esc_url( $export_url ) . '" class="button">' . esc_html__( 'Download JSON Export', 'code-unloader' ) . '</a>';
 		echo '<p class="description">' . esc_html__( 'Exports all rules and groups as a JSON file. Log entries are not exported.', 'code-unloader' ) . '</p>';
@@ -547,9 +547,9 @@ class AdminScreen {
 		// Import
 		echo '<tr><th scope="row">' . esc_html__( 'Import Rules', 'code-unloader' ) . '</th><td>';
 		echo '<form method="post" enctype="multipart/form-data">';
-		wp_nonce_field( 'cu_admin_action' );
-		echo '<input type="hidden" name="cu_action" value="import">';
-		echo '<input type="file" name="cu_import_file" accept=".json"> ';
+		wp_nonce_field( 'cdunloader_admin_action' );
+		echo '<input type="hidden" name="cdunloader_action" value="import">';
+		echo '<input type="file" name="cdunloader_import_file" accept=".json"> ';
 		echo '<button type="submit" class="button">' . esc_html__( 'Import JSON', 'code-unloader' ) . '</button>';
 		echo '</form>';
 		echo '</td></tr>';
@@ -562,7 +562,7 @@ class AdminScreen {
 	// Plugins-page delete confirmation
 	// -------------------------------------------------------------------------
 	public function inject_delete_confirmation(): void {
-		$plugin_file = plugin_basename( CU_FILE );
+		$plugin_file = plugin_basename( CDUNLOADER_FILE );
 		?>
 <div id="cu-delete-modal" style="display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
 	<div style="background:#fff;border-radius:10px;padding:32px;max-width:480px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.4);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -576,8 +576,8 @@ class AdminScreen {
 	</div>
 </div>
 		<?php
-		wp_enqueue_script( 'cu-delete-confirm', CU_URL . 'assets/js/delete-confirm.js', [], CU_VERSION, true );
-		wp_localize_script( 'cu-delete-confirm', 'CU_DELETE_DATA', [ 'plugin_file' => $plugin_file ] );
+		wp_enqueue_script( 'cu-delete-confirm', CDUNLOADER_URL . 'assets/js/delete-confirm.js', [], CDUNLOADER_VERSION, true );
+		wp_localize_script( 'cu-delete-confirm', 'CDUNLOADER_DELETE_DATA', [ 'plugin_file' => $plugin_file ] );
 	}
 
 	public function maybe_hook_delete_confirmation(): void {

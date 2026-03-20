@@ -20,7 +20,7 @@ class RuleRepository {
 		if ( null !== self::$rules_cache ) {
 			return self::$rules_cache;
 		}
-		$cached = wp_cache_get( 'cu_all_rules' );
+		$cached = wp_cache_get( 'cdunloader_all_rules' );
 		if ( false !== $cached ) {
 			self::$rules_cache = $cached;
 			return self::$rules_cache;
@@ -32,13 +32,13 @@ class RuleRepository {
 			 LEFT JOIN {$wpdb->prefix}cu_groups g ON g.id = r.group_id"
 		);
 		self::$rules_cache = $results ?: [];
-		wp_cache_set( 'cu_all_rules', self::$rules_cache );
+		wp_cache_set( 'cdunloader_all_rules', self::$rules_cache );
 		return self::$rules_cache;
 	}
 
 	/** Get a single rule by ID. */
 	public static function get_rule( int $id ): ?object {
-		$cached = wp_cache_get( "cu_rule_{$id}" );
+		$cached = wp_cache_get( "cdunloader_rule_{$id}" );
 		if ( false !== $cached ) {
 			return $cached ?: null;
 		}
@@ -46,7 +46,7 @@ class RuleRepository {
 		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}cu_rules WHERE id = %d", $id )
 		) ?: null;
-		wp_cache_set( "cu_rule_{$id}", $row ?: 0 );
+		wp_cache_set( "cdunloader_rule_{$id}", $row ?: 0 );
 		return $row;
 	}
 
@@ -268,7 +268,7 @@ class RuleRepository {
 	// -------------------------------------------------------------------------
 
 	public static function get_all_groups(): array {
-		$cached = wp_cache_get( 'cu_all_groups' );
+		$cached = wp_cache_get( 'cdunloader_all_groups' );
 		if ( false !== $cached ) {
 			return $cached;
 		}
@@ -280,12 +280,12 @@ class RuleRepository {
 			 GROUP BY g.id
 			 ORDER BY g.name"
 		) ?: [];
-		wp_cache_set( 'cu_all_groups', $results );
+		wp_cache_set( 'cdunloader_all_groups', $results );
 		return $results;
 	}
 
 	public static function get_group( int $id ): ?object {
-		$cached = wp_cache_get( "cu_group_{$id}" );
+		$cached = wp_cache_get( "cdunloader_group_{$id}" );
 		if ( false !== $cached ) {
 			return $cached ?: null;
 		}
@@ -293,7 +293,7 @@ class RuleRepository {
 		$row = $wpdb->get_row( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			"SELECT * FROM {$wpdb->prefix}cu_groups WHERE id = %d", $id
 		) ) ?: null;
-		wp_cache_set( "cu_group_{$id}", $row ?: 0 );
+		wp_cache_set( "cdunloader_group_{$id}", $row ?: 0 );
 		return $row;
 	}
 
@@ -407,8 +407,8 @@ class RuleRepository {
 	/** Flush all object caches used by this repository. */
 	private static function invalidate_caches(): void {
 		self::$rules_cache = null; // clear static in-memory cache — must come before wp_cache_delete
-		wp_cache_delete( 'cu_all_rules' );
-		wp_cache_delete( 'cu_all_groups' );
-		wp_cache_delete( 'cu_rules_count' );
+		wp_cache_delete( 'cdunloader_all_rules' );
+		wp_cache_delete( 'cdunloader_all_groups' );
+		wp_cache_delete( 'cdunloader_rules_count' );
 	}
 }

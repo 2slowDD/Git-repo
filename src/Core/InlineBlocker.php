@@ -14,7 +14,13 @@ class InlineBlocker {
 	private bool  $debug;
 
 	public function init(): void {
-		if ( get_option( CU_OPTION_KILL ) ) {
+		// Bypass via ?nowpcu — disables all rules for this request.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only bypass parameter, no data modification.
+		if ( isset( $_GET['nowpcu'] ) ) {
+			return;
+		}
+
+		if ( get_option( CDUNLOADER_OPTION_KILL ) ) {
 			return;
 		}
 

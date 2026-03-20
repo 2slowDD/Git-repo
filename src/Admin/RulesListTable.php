@@ -124,7 +124,7 @@ class RulesListTable extends \WP_List_Table {
 	public function prepare_items(): void {
 		// Read per-page from the user's saved screen option (set via the Screen Options panel).
 		// Falls back to 10 if not set. Allowed values: 10, 20, 50.
-		$saved    = (int) get_user_option( 'cu_rules_per_page' );
+		$saved    = (int) get_user_option( 'cdunloader_rules_per_page' );
 		$per_page = in_array( $saved, [ 10, 20, 50 ], true ) ? $saved : 10;
 		$page     = $this->get_pagenum();
 

@@ -3,7 +3,7 @@
  * Plugin Name: Code Unloader
  * Plugin URI:  https://wpservice.pro/
  * Description: Per-page JavaScript & CSS asset management. Surgically dequeue scripts and styles on any page using exact, wildcard, or regex URL rules.
- * Version:     1.3.6
+ * Version:     1.3.9
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Author:      Dalibor Druzinec
@@ -22,13 +22,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Constants
-define( 'CU_VERSION',     '1.3.6' );
-define( 'CU_FILE',        __FILE__ );
-define( 'CU_DIR',         plugin_dir_path( __FILE__ ) );
-define( 'CU_URL',         plugin_dir_url( __FILE__ ) );
-define( 'CU_DB_VERSION',  '1' );
-define( 'CU_OPTION_KILL', 'cu_kill_switch' );
-define( 'CU_OPTION_DBVER','cu_db_version' );
+define( 'CDUNLOADER_VERSION',     '1.3.9' );
+define( 'CDUNLOADER_FILE',        __FILE__ );
+define( 'CDUNLOADER_DIR',         plugin_dir_path( __FILE__ ) );
+define( 'CDUNLOADER_URL',         plugin_dir_url( __FILE__ ) );
+define( 'CDUNLOADER_DB_VERSION',  '1' );
+define( 'CDUNLOADER_OPTION_KILL', 'cdunloader_kill_switch' );
+define( 'CDUNLOADER_OPTION_DBVER','cdunloader_db_version' );
 
 // PSR-4 autoloader
 spl_autoload_register( function ( string $class ): void {
@@ -37,7 +37,7 @@ spl_autoload_register( function ( string $class ): void {
 		return;
 	}
 	$relative = str_replace( '\\', '/', substr( $class, strlen( $prefix ) ) );
-	$file      = CU_DIR . 'src/' . $relative . '.php';
+	$file      = CDUNLOADER_DIR . 'src/' . $relative . '.php';
 	if ( file_exists( $file ) ) {
 		require_once $file;
 	}

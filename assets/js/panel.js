@@ -55,7 +55,7 @@ var cuClosePanel = function () {
 	/* eslint-disable no-console */
 	console.log('[Code Unloader] panel.js v10 loaded');
 
-	var D       = window.CU_DATA || {};
+	var D       = window.CDUNLOADER_DATA || {};
 	var API     = D.api_base     || '';
 	var NONCE   = D.nonce        || '';
 	var assets  = D.assets       || [];
@@ -66,7 +66,7 @@ var cuClosePanel = function () {
 	/* -----------------------------------------------------------------------
 	   Theme
 	   ----------------------------------------------------------------------- */
-	var THEME_KEY    = 'cu_theme';
+	var THEME_KEY    = 'cdunloader_theme';
 	var currentTheme = localStorage.getItem(THEME_KEY) || 'light';
 
 	function applyTheme(theme) {
@@ -83,7 +83,7 @@ var cuClosePanel = function () {
 	/* -----------------------------------------------------------------------
 	   Dock side (left / right)
 	   ----------------------------------------------------------------------- */
-	var DOCK_KEY  = 'cu_dock';
+	var DOCK_KEY  = 'cdunloader_dock';
 	var dockSide  = localStorage.getItem(DOCK_KEY) || 'right';
 
 	function applyDock(side) {
@@ -103,7 +103,7 @@ var cuClosePanel = function () {
 	/* -----------------------------------------------------------------------
 	   First-use warning
 	   ----------------------------------------------------------------------- */
-	var WARN_KEY = 'cu_no_warn';
+	var WARN_KEY = 'cdunloader_no_warn';
 
 	function showWarningIfNeeded() {
 		if (localStorage.getItem(WARN_KEY) === '1') return;
@@ -822,7 +822,7 @@ var cuClosePanel = function () {
 			+ '</div>';
 
 		// --- Group-by-type toggle (task 8) ---
-		var INLINE_GROUP_KEY = 'cu_inline_group';
+		var INLINE_GROUP_KEY = 'cdunloader_inline_group';
 		var grouped = localStorage.getItem(INLINE_GROUP_KEY) === '1';
 
 		var toolbar = '<div class="cu-inline-toolbar">'

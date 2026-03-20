@@ -4,7 +4,7 @@
 (function () {
 	'use strict';
 
-	const cfg   = window.CU_ADMIN || {};
+	const cfg   = window.CDUNLOADER_ADMIN || {};
 	const API   = cfg.api_base    || '';
 	const NONCE = cfg.nonce       || '';
 

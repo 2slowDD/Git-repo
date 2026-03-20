@@ -264,7 +264,7 @@ class RestController {
 	// -------------------------------------------------------------------------
 
 	public function get_killswitch(): \WP_REST_Response {
-		return new \WP_REST_Response( [ 'active' => (bool) get_option( CU_OPTION_KILL ) ] );
+		return new \WP_REST_Response( [ 'active' => (bool) get_option( CDUNLOADER_OPTION_KILL ) ] );
 	}
 
 	public function toggle_killswitch( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
@@ -273,13 +273,13 @@ class RestController {
 			return new \WP_Error( 'confirmation_required', 'Pass confirmed:true to toggle kill switch.', [ 'status' => 400 ] );
 		}
 
-		$active = (bool) get_option( CU_OPTION_KILL );
+		$active = (bool) get_option( CDUNLOADER_OPTION_KILL );
 		$new    = ! $active;
 
 		if ( $new ) {
-			update_option( CU_OPTION_KILL, 1 );
+			update_option( CDUNLOADER_OPTION_KILL, 1 );
 		} else {
-			delete_option( CU_OPTION_KILL );
+			delete_option( CDUNLOADER_OPTION_KILL );
 		}
 
 		RuleRepository::log_action( 'killswitch', get_current_user_id(), null, [ 'activated' => $new ] );
@@ -315,7 +315,7 @@ class RestController {
 
 		return new \WP_REST_Response( [
 			'rules'      => array_values( $matched ),
-			'kill_switch'=> (bool) get_option( CU_OPTION_KILL ),
+			'kill_switch'=> (bool) get_option( CDUNLOADER_OPTION_KILL ),
 		] );
 	}
 }
