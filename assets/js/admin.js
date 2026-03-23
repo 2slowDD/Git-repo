@@ -343,4 +343,125 @@
 		});
 	}
 
+	// ---- View Rules modal ----
+	function buildViewRulesModal() {
+		if (document.getElementById('cu-view-rules-modal')) return;
+		const modal = document.createElement('div');
+		modal.id = 'cu-view-rules-modal';
+		modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:100100;background:rgba(0,0,0,.55);align-items:center;justify-content:center;';
+		modal.innerHTML = `
+		<div style="background:#fff;border-radius:6px;padding:24px 28px;max-width:680px;width:95%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.22);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+			<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+				<h2 id="cu-vrm-title" style="margin:0;font-size:16px;font-weight:600;"></h2>
+				<button id="cu-vrm-close" class="button" style="min-width:0;padding:4px 10px;">&times;</button>
+			</div>
+			<div id="cu-vrm-body" style="overflow-y:auto;flex:1;"></div>
+			<div id="cu-vrm-pagination" style="display:none;margin-top:14px;display:flex;align-items:center;gap:10px;justify-content:space-between;border-top:1px solid #eee;padding-top:12px;">
+				<button id="cu-vrm-prev" class="button">&larr; Previous</button>
+				<span id="cu-vrm-page-info" style="font-size:12px;color:#555;"></span>
+				<button id="cu-vrm-next" class="button">Next &rarr;</button>
+			</div>
+		</div>`;
+		document.body.appendChild(modal);
+		modal.addEventListener('click', function(e) { if (e.target === modal) closeViewRulesModal(); });
+		document.getElementById('cu-vrm-close').addEventListener('click', closeViewRulesModal);
+	}
+
+	function closeViewRulesModal() {
+		const modal = document.getElementById('cu-view-rules-modal');
+		if (modal) modal.style.display = 'none';
+	}
+
+	// State for current modal pagination
+	var vrmState = { groupId: null, groupName: '', page: 1, totalPages: 1, perPage: 50 };
+
+	async function loadViewRulesPage(page) {
+		const body = document.getElementById('cu-vrm-body');
+		const pagination = document.getElementById('cu-vrm-pagination');
+		const pageInfo = document.getElementById('cu-vrm-page-info');
+		const prevBtn = document.getElementById('cu-vrm-prev');
+		const nextBtn = document.getElementById('cu-vrm-next');
+
+		body.innerHTML = '<p style="color:#555;font-size:13px;">Loading…</p>';
+
+		try {
+			const data = await api('GET', '/rules?group_id=' + encodeURIComponent(vrmState.groupId) +
+				'&per_page=' + vrmState.perPage + '&page=' + page);
+			const rules = data.rows || [];
+			const total = data.total || rules.length;
+			vrmState.page = page;
+			vrmState.totalPages = Math.max(1, Math.ceil(total / vrmState.perPage));
+
+			if (!rules.length) {
+				body.innerHTML = '<p style="color:#555;font-size:13px;">No rules in this group.</p>';
+				pagination.style.display = 'none';
+				return;
+			}
+
+			let html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+			html += '<thead><tr style="background:#f6f7f7;">';
+			html += '<th style="text-align:left;padding:7px 10px;border-bottom:2px solid #ddd;font-weight:600;">Handle</th>';
+			html += '<th style="text-align:left;padding:7px 10px;border-bottom:2px solid #ddd;font-weight:600;">Type</th>';
+			html += '<th style="text-align:left;padding:7px 10px;border-bottom:2px solid #ddd;font-weight:600;">URL Pattern</th>';
+			html += '<th style="text-align:left;padding:7px 10px;border-bottom:2px solid #ddd;font-weight:600;">Match</th>';
+			html += '</tr></thead><tbody>';
+
+			rules.forEach(function(rule, i) {
+				const bg = (i % 2 === 0) ? '#fff' : '#f9f9f9';
+				html += '<tr style="background:' + bg + ';">';
+				html += '<td style="padding:7px 10px;border-bottom:1px solid #eee;font-family:monospace;">' + escHtml(rule.asset_handle) + '</td>';
+				html += '<td style="padding:7px 10px;border-bottom:1px solid #eee;">' + escHtml(rule.asset_type) + '</td>';
+				html += '<td style="padding:7px 10px;border-bottom:1px solid #eee;font-family:monospace;word-break:break-all;">' + escHtml(rule.url_pattern) + '</td>';
+				html += '<td style="padding:7px 10px;border-bottom:1px solid #eee;">' + escHtml(rule.match_type) + '</td>';
+				html += '</tr>';
+			});
+
+			html += '</tbody></table>';
+			body.innerHTML = html;
+
+			// Pagination controls
+			if (vrmState.totalPages > 1) {
+				pagination.style.display = 'flex';
+				pageInfo.textContent = 'Page ' + vrmState.page + ' of ' + vrmState.totalPages + ' (' + total + ' rules)';
+				prevBtn.disabled = (vrmState.page <= 1);
+				nextBtn.disabled = (vrmState.page >= vrmState.totalPages);
+			} else {
+				pagination.style.display = 'none';
+			}
+		} catch (err) {
+			body.innerHTML = '<p style="color:#b00020;font-size:13px;">Error: ' + escHtml(err.message) + '</p>';
+			pagination.style.display = 'none';
+		}
+	}
+
+	async function openViewRulesModal(groupId, groupName) {
+		buildViewRulesModal();
+		const modal = document.getElementById('cu-view-rules-modal');
+		const title = document.getElementById('cu-vrm-title');
+
+		vrmState.groupId = groupId;
+		vrmState.groupName = groupName;
+		title.textContent = groupName;
+		modal.style.display = 'flex';
+
+		// Wire pagination buttons (clone to clear old listeners)
+		const prevBtn = document.getElementById('cu-vrm-prev');
+		const nextBtn = document.getElementById('cu-vrm-next');
+		const newPrev = prevBtn.cloneNode(true);
+		const newNext = nextBtn.cloneNode(true);
+		prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+		nextBtn.parentNode.replaceChild(newNext, nextBtn);
+		newPrev.addEventListener('click', function() { if (vrmState.page > 1) loadViewRulesPage(vrmState.page - 1); });
+		newNext.addEventListener('click', function() { if (vrmState.page < vrmState.totalPages) loadViewRulesPage(vrmState.page + 1); });
+
+		await loadViewRulesPage(1);
+	}
+
+	// View Rules button click
+	document.addEventListener('click', function(e) {
+		const btn = e.target.closest('.cu-group-view-rules-btn');
+		if (!btn) return;
+		openViewRulesModal(btn.dataset.id, btn.dataset.name);
+	});
+
 })();

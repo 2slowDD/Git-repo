@@ -479,6 +479,7 @@ class AdminScreen {
 				echo '<p class="cu-group-desc">' . esc_html( $group->description ) . '</p>';
 			}
 			echo '<div class="cu-group-card-actions">';
+			echo '<button class="button cu-group-view-rules-btn" data-id="' . esc_attr( $group->id ) . '" data-name="' . esc_attr( $group->name ) . '">' . esc_html__( 'View Rules', 'code-unloader' ) . '</button> ';
 			echo '<button class="button cu-group-toggle-btn" data-id="' . esc_attr( $group->id ) . '" data-enabled="' . esc_attr( $group->enabled ) . '">'
 				. ( $group->enabled ? esc_html__( 'Disable Group', 'code-unloader' ) : esc_html__( 'Enable Group', 'code-unloader' ) )
 				. '</button> ';

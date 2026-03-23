@@ -4,7 +4,7 @@ Tags: performance, assets, scripts, styles, dequeue
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.3.9
+Stable tag: 1.4.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,7 +34,7 @@ Code Unloader gives site administrators surgical control over which JavaScript a
 * JSON import/export
 * Zero performance overhead on pages with no matching rules
 
-**Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi, WP Bakery, basically everything WP-related.
+**Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi, WP Bakery, basically everything WP related.
 
 **Requirements:** PHP 8.0 or higher is required. The plugin uses modern PHP features (union types, match expressions, named functions) that are not available in PHP 7.x.
 
@@ -80,6 +80,10 @@ Inline blocks are `<script>` and `<style>` tags that are printed directly into t
 6. Admin screen — Settings tab with kill switch
 
 == Changelog ==
+
+= 1.4.0 =
+* New: "View Rules" button on each group card — opens a modal listing all rules in that group with zebra-stripe styling
+* Changed: Rule uniqueness constraint now scoped per group — the same asset/URL combination can exist independently in multiple groups
 
 = 1.3.9 =
 * Changed: Bypass mechanism replaced — appending ?nowpcu to any URL now disables all Code Unloader rules for that request, following the same convention as ?nowprocket (WP Rocket) and ?ao_noptimize=1 (Autoptimize)

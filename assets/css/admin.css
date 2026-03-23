@@ -169,7 +169,7 @@
 .cu-group-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .cu-group-rule-count { font-size: 11px; background: #eee; padding: 2px 7px; border-radius: 10px; }
 .cu-group-desc { font-size: 12px; color: #666; margin: 0 0 12px; }
-.cu-group-card-actions { display: flex; gap: 8px; }
+.cu-group-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .cu-snapshot { font-size: 11px; background: #f5f5f5; padding: 8px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
 

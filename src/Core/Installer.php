@@ -74,7 +74,7 @@ class Installer {
 			created_at        DATETIME NOT NULL,
 			PRIMARY KEY (id),
 			KEY idx_url_pattern (url_pattern(191)),
-			UNIQUE KEY uniq_rule (url_pattern(191), match_type, asset_handle(191), asset_type, device_type)
+			UNIQUE KEY uniq_rule (url_pattern(191), match_type, asset_handle(191), asset_type, device_type, group_id)
 		) ENGINE=InnoDB {$charset};";
 
 		// Audit log table
