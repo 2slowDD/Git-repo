@@ -5,6 +5,16 @@ All notable changes to Code Unloader will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-23
+
+### Added
+
+* "View Rules" button on each group card — opens a modal listing all rules in that group with zebra-stripe styling and pagination (50 per page)
+
+### Changed
+
+* Rule uniqueness constraint now scoped per group — the same asset/URL combination can exist independently in multiple groups
+
 ## [1.3.9] - 2026-03-20
 
 ### Changed
@@ -15,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-* CU_SCANNER_ACTIVE constant bypass (superseded by `?nowpcu`)
+* `CU_SCANNER_ACTIVE` constant bypass (superseded by `?nowpcu`)
 
 ## [1.3.7] - 2026-03-20
 

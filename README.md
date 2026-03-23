@@ -1,4 +1,4 @@
-# Code Unloader v1.3.9
+# Code Unloader v1.4.0
 
 Per-page JavaScript & CSS asset management for WordPress. Surgically dequeue scripts and styles on any page using exact, wildcard, or regex URL rules.
 
@@ -13,11 +13,11 @@ Per-page JavaScript & CSS asset management for WordPress. Surgically dequeue scr
 * Global admin screen listing all rules across the site
 * One-click kill switch to instantly restore all assets sitewide
 * Bypass all rules for a single request via `?nowpcu` URL parameter
+* Rule groups with enable/disable toggle and "View Rules" modal
 * Conditional rules (logged-in users, WooCommerce pages, shortcodes, post types)
 * Device-type rules (desktop-only or mobile-only)
 * Inline script/style blocking for assets without registered handles
 * Inline block detection — see every inline `<script>` and `<style>` on the page
-* Rule groups for managing sets of rules as a unit
 * Full audit log of all changes
 * JSON import/export
 * Zero performance overhead on pages with no matching rules
@@ -36,7 +36,7 @@ Per-page JavaScript & CSS asset management for WordPress. Surgically dequeue scr
 
 ## Compatibility
 
-**Compatible with:** WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi, WP Bakery, basically everything WP-related.
+WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache, WooCommerce, Elementor, Divi, WP Bakery, basically everything WP related.
 
 ## License
 
