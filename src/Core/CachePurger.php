@@ -91,9 +91,12 @@ class CachePurger {
 			do_action( 'rt_nginx_helper_purge_url', $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
 		}
 
-		// Cloudflare (if using the official plugin)
+		// Cloudflare (official plugin)
+		// cloudflare_purge_by_url is a filter used to extend Cloudflare's own post-save
+		// purge list — it cannot trigger an on-demand purge from outside the plugin.
+		// Fall back to a full purge via the cloudflare_purge_everything_actions filter.
 		if ( class_exists( '\CF\WordPress\Hooks' ) ) {
-			do_action( 'cloudflare_purge_by_url', [ $url ] ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
+			self::purge_cloudflare_all();
 		}
 
 		do_action( 'code_unloader_purge_url', $url );
@@ -152,11 +155,37 @@ class CachePurger {
 			}
 		}
 
-		// Cloudflare
+		// Cloudflare (official plugin)
+		// cloudflare_purge_everything is not a real action — the correct way to trigger
+		// a full Cloudflare purge programmatically is to add a custom action name to the
+		// cloudflare_purge_everything_actions filter, then fire that action.
 		if ( class_exists( '\CF\WordPress\Hooks' ) ) {
-			do_action( 'cloudflare_purge_everything' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin hook.
+			self::purge_cloudflare_all();
 		}
 
 		do_action( 'code_unloader_purge_all' );
+	}
+
+	// -------------------------------------------------------------------------
+	// Cloudflare full-purge helper
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Trigger a full Cloudflare cache purge using the correct filter-based mechanism.
+	 *
+	 * The Cloudflare plugin exposes cloudflare_purge_everything_actions — a filter
+	 * on the list of WP action names that trigger a full purge. We add our own
+	 * prefixed action name to that list, fire it once, then immediately remove the
+	 * filter so it only affects this single call.
+	 */
+	private static function purge_cloudflare_all(): void {
+		$cb = function ( array $actions ): array {
+			$actions[] = 'cdunloader_purge_cloudflare';
+			return $actions;
+		};
+
+		add_filter( 'cloudflare_purge_everything_actions', $cb ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party plugin filter.
+		do_action( 'cdunloader_purge_cloudflare' );
+		remove_filter( 'cloudflare_purge_everything_actions', $cb );
 	}
 }

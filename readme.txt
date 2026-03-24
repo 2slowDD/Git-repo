@@ -4,7 +4,7 @@ Tags: performance, assets, scripts, styles, dequeue
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,6 +80,9 @@ Inline blocks are `<script>` and `<style>` tags that are printed directly into t
 6. Admin screen — Settings tab with kill switch
 
 == Changelog ==
+
+= 1.4.1 =
+* Fixed: Cloudflare cache integration corrected — cloudflare_purge_by_url and cloudflare_purge_everything are filters, not actions; both replaced with the correct cloudflare_purge_everything_actions filter mechanism
 
 = 1.4.0 =
 * New: "View Rules" button on each group card — opens a modal listing all rules in that group with zebra-stripe styling
