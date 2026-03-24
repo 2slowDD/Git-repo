@@ -11,6 +11,10 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Per-page JavaScript & CSS asset management. Surgically dequeue scripts and styles on any page using exact, wildcard, or regex URL rules.
 
 == Description ==
+[youtube https://youtu.be/abCdOEl1cxg]
+
+Official plugin homepage:
+[https://wpservice.pro/our-products/code-unloader/](https://wpservice.pro/our-products/code-unloader/)
 
 Code Unloader gives site administrators surgical control over which JavaScript and CSS files are loaded on each individual page or post.
 
